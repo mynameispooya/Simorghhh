@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ابزار هوشمند نگاشت و تحول داده‌های اکسل</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700&display=swap');
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-lg py-6 px-8 mb-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide">Excel Data Mapping & Transformation Tool</h1>
+                <p class="text-blue-100 text-sm mt-1">ابزار حرفه‌ای نگاشت ساختاریافته و افزودن ستون متناظر داینامیک به فایل‌های اکسل</p>
+            </div>
+            <div class="bg-white/10 px-4 py-2 rounded-lg text-xs backdrop-blur-sm">
+                <span class="font-bold">وضعیت سیستم:</span> ۱۰۰٪ لوکال و بدون نیاز به سرور
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 space-y-6">
+                
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 transition-all hover:shadow-md">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="flex items-center justify-center w-8 height-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">۱</span>
+                        <h2 class="text-lg font-bold text-slate-900">آپلود فایل اکسل (Excel Upload)</h2>
+                    </div>
+                    
+                    <div class="flex items-center justify-center w-full">
+                        <label for="excel-file" class="flex flex-col items-center justify-center w-full h-36 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-10 h-10 mb-3 text-slate-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                </svg>
+                                <p class="mb-2 text-sm text-slate-500"><span class="font-bold text-blue-600">برای آپلود کلیک کنید</span> یا فایل را بکشید و رها کنید</p>
+                                <p class="text-xs text-slate-400">XLSX, XLS (ردیف اول به عنوان هدر در نظر گرفته می‌شود)</p>
+                            </div>
+                            <input id="excel-file" type="file" class="hidden" accept=".xlsx, .xls" />
+                        </label>
+                    </div>
+                    <div id="file-info" class="mt-3 text-sm text-emerald-600 font-medium hidden flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span id="file-name-display"></span>
+                    </div>
+                </div>
+
+                <div id="step-2-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 opacity-50 pointer-events-none transition-all">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 height-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">۲</span>
+                            <h2 class="text-lg font-bold text-slate-900">انتخاب ستون مبدا و استخراج مقادیر یکتا</h2>
+                        </div>
+                        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Unique Values Extractor</span>
+                    </div>
+
+                    <div class="mb-5">
+                        <label for="column-select" class="block text-sm font-medium text-slate-700 mb-2">ستون مورد نظر جهت پردازش و نگاشت را انتخاب کنید:</label>
+                        <select id="column-select" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+                            <option value="" disabled selected>-- ابتدا یک فایل اکسل آپلود کنید --</option>
+                        </select>
+                    </div>
+
+                    <div id="unique-values-container" class="hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-slate-700">مقادیر یکتای یافت شده:</span>
+                            <span id="unique-count-badge" class="text-xs bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-full"></span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3">
+                            راهنما: برای **نگاشت تکی** روی هر آیتم دابل‌کلیک کنید. برای **نگاشت گروهی (Multi-Unique)**، چند آیتم را با کلیک انتخاب کنید و سپس دکمه ایجاد گروه را بزنید.
+                        </p>
+                        
+                        <div id="unique-values-list" class="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 max-h-60 overflow-y-auto custom-scrollbar">
+                            </div>
+
+                        <div id="multi-select-actions" class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between hidden">
+                            <div class="text-xs text-slate-600">
+                                تعداد موارد انتخاب شده برای نگاشت گروهی: <span id="selected-count" class="font-bold text-blue-600">0</span> مورد
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="clear-selection-btn" class="text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 bg-white transition-all">لغو انتخاب‌ها</button>
+                                <button id="create-group-btn" class="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg font-medium shadow-sm transition-all flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    ایجاد نگاشت گروهی برای انتخاب‌شده‌ها
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="step-4-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 opacity-50 pointer-events-none transition-all">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="flex items-center justify-center w-8 height-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">۴</span>
+                        <h2 class="text-lg font-bold text-slate-900">ایجاد ستون جدید و خروجی اکسل (Export)</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label for="new-column-name" class="block text-sm font-medium text-slate-700 mb-2">نام ستون جدید جدید (مثلاً: کشور):</label>
+                            <input type="text" id="new-column-name" placeholder="نام ستون مقصد را وارد کنید..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5" />
+                        </div>
+                        <div>
+                            <label for="default-value" class="block text-sm font-medium text-slate-700 mb-2">مقدار پیش‌فرض برای سایر ردیف‌ها (اختیاری):</label>
+                            <input type="text" id="default-value" placeholder="خالی یا مقدار ثابت (مانند: نامشخص)..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5" />
+                        </div>
+                    </div>
+
+                    <button id="process-export-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        اعمال قوانین مپینگ و دانلود فایل اکسل نهایی
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-1">
+                <div id="step-3-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 sticky top-6 transition-all min-h-[400px] flex flex-col">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 height-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">۳</span>
+                            <h2 class="text-base font-bold text-slate-900">لیست قوانین نگاشت (Rules)</h2>
+                        </div>
+                        <span id="rules-count" class="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded">0 قانون</span>
+                    </div>
+
+                    <div id="rules-list-container" class="flex-grow overflow-y-auto custom-scrollbar space-y-3 max-h-[500px] pr-1 text-sm">
+                        <div id="empty-rules-message" class="text-center py-12 text-slate-400 space-y-2">
+                            <svg class="w-12 h-12 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                            <p class="font-medium text-xs">هیچ قانون نگاشتی تعریف نشده است.</p>
+                            <p class="text-[11px]">با دابل‌کلیک یا مپینگ گروهی بر روی مقادیر یکتا، قوانین شما در اینجا ظاهر می‌شوند.</p>
+                        </div>
+                        
+                        </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 text-center">
+                        تمامی نگاشت‌ها در حافظه موقت مرورگر نگهداری می‌شوند.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="mapping-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-100 max-w-md w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="bg-slate-900 p-4 text-white flex justify-between items-center">
+                <h3 id="modal-title" class="text-sm font-bold">تعریف مقدار متناظر جدید</h3>
+                <button id="close-modal-btn" class="text-slate-400 hover:text-white transition-all text-xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <span class="block text-xs font-semibold text-slate-400 mb-1">مقدار یا مقادیر مبدا انتخاب شده:</span>
+                    <div id="modal-source-display" class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 max-h-24 overflow-y-auto custom-scrollbar break-all"></div>
+                </div>
+                <div>
+                    <label for="modal-target-input" class="block text-xs font-semibold text-slate-700 mb-1">مقدار خروجی جدید را وارد نمایید (Value Mapping):</label>
+                    <input type="text" id="modal-target-input" placeholder="مثلاً: italy یا Slovenia" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5" />
+                </div>
+                <div class="flex gap-2 justify-end pt-2">
+                    <button id="modal-cancel-btn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-all">انصراف</button>
+                    <button id="modal-save-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all">ثبت و ذخیره قانون</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Application Architecture State Object (Single Source of Truth)
+        const AppState = {
+            rawWorkbookData: null,   // Parsed structural rows array from SheetJS
+            sheetName: '',           // Current active tab name string
+            columnHeaders: [],       // Extracted keys list representing step 1 headings
+            selectedSourceColumn: '',// Active column target selected by client user
+            uniqueValuesMap: [],     // Unique string value tokens arrays of selected target column
+            multiSelectedValues: [], // Array items currently checked/flagged for group processing
+            registeredRules: [],     // Array of Rule Objects: { id, type: 'single'|'multi', sourceValues: [], targetValue: '' }
+            currentActiveModalData: null // Modal state context tracker
+        };
+
+        // DOM Element Selector Registry
+        const DOM = {
+            fileInput: document.getElementById('excel-file'),
+            fileInfo: document.getElementById('file-info'),
+            fileNameDisplay: document.getElementById('file-name-display'),
+            step2Section: document.getElementById('step-2-section'),
+            step3Section: document.getElementById('step-3-section'),
+            step4Section: document.getElementById('step-4-section'),
+            columnSelect: document.getElementById('column-select'),
+            uniqueValuesContainer: document.getElementById('unique-values-container'),
+            uniqueCountBadge: document.getElementById('unique-count-badge'),
+            uniqueValuesList: document.getElementById('unique-values-list'),
+            multiSelectActions: document.getElementById('multi-select-actions'),
+            selectedCount: document.getElementById('selected-count'),
+            clearSelectionBtn: document.getElementById('clear-selection-btn'),
+            createGroupBtn: document.getElementById('create-group-btn'),
+            rulesListContainer: document.getElementById('rules-list-container'),
+            emptyRulesMessage: document.getElementById('empty-rules-message'),
+            rulesCount: document.getElementById('rules-count'),
+            newColumnName: document.getElementById('new-column-name'),
+            defaultValue: document.getElementById('default-value'),
+            processExportBtn: document.getElementById('process-export-btn'),
+            
+            // Modal DOM Registry
+            mappingModal: document.getElementById('mapping-modal'),
+            modalTitle: document.getElementById('modal-title'),
+            modalSourceDisplay: document.getElementById('modal-source-display'),
+            modalTargetInput: document.getElementById('modal-target-input'),
+            closeModalBtn: document.getElementById('close-modal-btn'),
+            modalCancelBtn: document.getElementById('modal-cancel-btn'),
+            modalSaveBtn: document.getElementById('modal-save-btn')
+        };
+
+        // Initialize Core App Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            DOM.fileInput.addEventListener('change', handleExcelFileUpload);
+            DOM.columnSelect.addEventListener('change', handleColumnSelectionChange);
+            DOM.clearSelectionBtn.addEventListener('click', clearMultiSelectionState);
+            DOM.createGroupBtn.addEventListener('click', initGroupMappingModal);
+            
+            // Modal triggers
+            DOM.closeModalBtn.addEventListener('click', closeModal);
+            DOM.modalCancelBtn.addEventListener('click', closeModal);
+            DOM.modalSaveBtn.addEventListener('click', commitModalMappingRule);
+            DOM.modalTargetInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') commitModalMappingRule(); });
+            
+            // Core generation engine trigger
+            DOM.processExportBtn.addEventListener('click', executeTransformationAndDownload);
+        });
+
+        /**
+         * Step 1: Handles parsing the raw excel system upload into clean JSON abstractions using SheetJS core pipelines
+         */
+        function handleExcelFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            DOM.fileNameDisplay.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            DOM.fileInfo.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', defval: "" });
+                
+                // Track standard primary sheet context
+                AppState.sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[AppState.sheetName];
+                
+                // Convert raw structures to standard structural objects array
+                const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (jsonRows.length === 0) {
+                    alert('خطا: فایل اکسل بارگذاری شده فاقد اطلاعات یا خالی است.');
+                    return;
+                }
+
+                // Extrapolate first row keys as column headings schema descriptors
+                AppState.columnHeaders = jsonRows[0].map(h => String(h || '').trim());
+                
+                // Transform matrix back into clean array of objects with schema descriptors mapped correctly
+                AppState.rawWorkbookData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                // Unlock step 2 controls ui layer
+                populateColumnDropdownSelector();
+                activateUISection(DOM.step2Section);
+                resetMappingsAndSelections();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        /**
+         * Populates step 2 drop-down menu with active structural column headers
+         */
+        function populateColumnDropdownSelector() {
+            DOM.columnSelect.innerHTML = '<option value="" disabled selected>-- یک ستون را انتخاب نمایید --</option>';
+            AppState.columnHeaders.forEach(header => {
+                if(header) {
+                    const opt = document.createElement('option');
+                    opt.value = header;
+                    opt.textContent = header;
+                    DOM.columnSelect.appendChild(opt);
+                }
+            });
+        }
+
+        /**
+         * Step 2: Extract unique values mapping matrices whenever source configuration context drops
+         */
+        function handleColumnSelectionChange(event) {
+            AppState.selectedSourceColumn = event.target.value;
+            if(!AppState.selectedSourceColumn) return;
+
+            // Gather all raw items, cast to trim strings, calculate unique items
+            const distinctSet = new Set();
+            AppState.rawWorkbookData.forEach(row => {
+                const val = row[AppState.selectedSourceColumn];
+                // Handle nulls/undefines smoothly as standard string mappings
+                distinctSet.add(val !== undefined && val !== null ? String(val).trim() : "");
+            });
+
+            AppState.uniqueValuesMap = Array.from(distinctSet).sort();
+            AppState.multiSelectedValues = []; // Flush tracking register
+            
+            // Update counts badge
+            DOM.uniqueCountBadge.textContent = `${AppState.uniqueValuesMap.length} مقدار یکتا`;
+            DOM.uniqueValuesContainer.classList.remove('hidden');
+            
+            renderUniqueValueItemTags();
+            updateMultiSelectBarVisibility();
+        }
+
+        /**
+         * Appends dynamic visual interactive element components inside the DOM for the unique items listing
+         */
+        function renderUniqueValueItemTags() {
+            DOM.uniqueValuesList.innerHTML = '';
+            
+            AppState.uniqueValuesMap.forEach(value => {
+                // String placeholder representation lookup
+                const displayLabel = value === "" ? "[مقدار تهی / Blank]" : value;
+                
+                // Container element block
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all select-none duration-150 flex items-center gap-1.5
+                    ${AppState.multiSelectedValues.includes(value) 
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-xs' 
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-slate-400'}`;
+                
+                // Inject structural metadata values explicitly for lookup referencing
+                itemDiv.dataset.rawValue = value;
+                
+                // Add contextual labels
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = displayLabel;
+                if(value === "") labelSpan.className = "text-slate-400 italic";
+                itemDiv.appendChild(labelSpan);
+
+                // Setup checking visual node if selected
+                if(AppState.multiSelectedValues.includes(value)) {
+                    const checkMark = document.createElement('span');
+                    checkMark.innerHTML = '&#10003;';
+                    checkMark.className = 'font-bold text-indigo-600';
+                    itemDiv.appendChild(checkMark);
+                }
+
+                // Attach dynamic events for mapping integration hooks
+                // Click triggers multi-select toggles
+                itemDiv.addEventListener('click', (e) => {
+                    toggleValueMultiSelectionState(value);
+                });
+
+                // Double click spawns fast precise individual mapping modal sequence
+                itemDiv.addEventListener('dblclick', (e) => {
+                    e.stopPropagation(); // Avoid triggering standard structural single click pipelines
+                    initSingleMappingModal(value);
+                });
+
+                DOM.uniqueValuesList.appendChild(itemDiv);
+            });
+        }
+
+        /**
+         * Intercepts standard selection flags for constructing multi-set conditional values array groups
+         */
+        function toggleValueMultiSelectionState(value) {
+            const index = AppState.multiSelectedValues.indexOf(value);
+            if(index > -1) {
+                AppState.multiSelectedValues.splice(index, 1);
+            } else {
+                AppState.multiSelectedValues.push(value);
+            }
+            
+            renderUniqueValueItemTags();
+            updateMultiSelectBarVisibility();
+        }
+
+        /**
+         * Clears multi selected registry
+         */
+        function clearMultiSelectionState() {
+            AppState.multiSelectedValues = [];
+            renderUniqueValueItemTags();
+            updateMultiSelectBarVisibility();
+        }
+
+        /**
+         * Manages display of the multi-select utilities action row bar interface
+         */
+        function updateMultiSelectBarVisibility() {
+            if(AppState.multiSelectedValues.length > 0) {
+                DOM.selectedCount.textContent = AppState.multiSelectedValues.length;
+                DOM.multiSelectActions.classList.remove('hidden');
+            } else {
+                DOM.multiSelectActions.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Spawns mapping rule capture modal for a single value component on double click
+         */
+        function initSingleMappingModal(value) {
+            AppState.currentActiveModalData = {
+                type: 'single',
+                sourceValues: [value]
+            };
+            
+            DOM.modalTitle.textContent = 'تنظیم نگاشت تکی (Double-Click Event Mapping)';
+            DOM.modalSourceDisplay.textContent = value === "" ? "[مقدار تهی / Blank]" : `مقدار یکتا: "${value}"`;
+            
+            // Pre-fill with existing mapped rule value if present
+            const existingRule = AppState.registeredRules.find(r => r.type === 'single' && r.sourceValues[0] === value);
+            DOM.modalTargetInput.value = existingRule ? existingRule.targetValue : '';
+            
+            openModal();
+        }
+
+        /**
+         * Spawns group mapping capturing parameters block context
+         */
+        function initGroupMappingModal() {
+            if(AppState.multiSelectedValues.length === 0) return;
+
+            AppState.currentActiveModalData = {
+                type: 'multi',
+                sourceValues: [...AppState.multiSelectedValues] // Clone tracking slice
+            };
+
+            DOM.modalTitle.textContent = `تنظیم نگاشت گروهی (${AppState.multiSelectedValues.length} مقدار همزمان)`;
+            DOM.modalSourceDisplay.textContent = AppState.multiSelectedValues.map(v => v === "" ? "[تهی]" : `"${v}"`).join(' ، ');
+            DOM.modalTargetInput.value = '';
+
+            openModal();
+        }
+
+        // Modal Open View Animation Wrapper Pipeline
+        function openModal() {
+            DOM.mappingModal.classList.remove('hidden');
+            setTimeout(() => {
+                DOM.mappingModal.classList.remove('opacity-0');
+                DOM.mappingModal.firstElementChild.classList.remove('scale-95');
+                DOM.modalTargetInput.focus();
+            }, 5);
+        }
+
+        // Modal Dismiss View Animation Wrapper Pipeline
+        function closeModal() {
+            DOM.mappingModal.classList.add('opacity-0');
+            DOM.mappingModal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                DOM.mappingModal.classList.add('hidden');
+                AppState.currentActiveModalData = null;
+            }, 200);
+        }
+
+        /**
+         * Commits validation, parses data values out of modal structures, and builds rule registry nodes
+         */
+        function commitModalMappingRule() {
+            const targetVal = DOM.modalTargetInput.value.trim();
+            if(!targetVal) {
+                alert('لطفاً مقدار جایگزین متناظر را وارد نمایید.');
+                return;
+            }
+
+            const context = AppState.currentActiveModalData;
+            if(!context) return;
+
+            // Deduplicate overlapping single or multi-valued mappings from registry array to keep execution rules deterministic
+            // If a single rule or structural overlap is discovered, purge it to override cleanly
+            AppState.registeredRules = AppState.registeredRules.filter(rule => {
+                // Keep if there is zero overlap across current source inputs
+                const hasOverlap = rule.sourceValues.some(v => context.sourceValues.includes(v));
+                return !hasOverlap;
+            });
+
+            // Construct new structural rule block descriptor node metadata object
+            const newRuleNode = {
+                id: 'rule_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                type: context.type,
+                sourceValues: context.sourceValues,
+                targetValue: targetVal
+            };
+
+            AppState.registeredRules.push(newRuleNode);
+            
+            // Clean selection lists registers out
+            clearMultiSelectionState();
+            closeModal();
+            renderRulesRegistryLayout();
+            
+            // Unlock final export processing container card block
+            if(AppState.registeredRules.length > 0) {
+                activateUISection(DOM.step4Section);
+            }
+        }
+
+        /**
+         * Removes a specific target mapping rule via explicit tracking key index references
+         */
+        function purgeRuleNodeById(ruleId) {
+            AppState.registeredRules = AppState.registeredRules.filter(r => r.id !== ruleId);
+            renderRulesRegistryLayout();
+            
+            if(AppState.registeredRules.length === 0) {
+                DOM.step4Section.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        /**
+         * Renders the visually detailed operational card blocks containing registered transform rules inside the sidebar panel dashboard
+         */
+        function renderRulesRegistryLayout() {
+            // Sweep current node item sets out first
+            const existingBlocks = DOM.rulesListContainer.querySelectorAll('.rule-card-block');
+            existingBlocks.forEach(b => b.remove());
+
+            DOM.rulesCount.textContent = `${AppState.registeredRules.length} قانون`;
+
+            if(AppState.registeredRules.length === 0) {
+                DOM.emptyRulesMessage.classList.remove('hidden');
+                return;
+            }
+
+            DOM.emptyRulesMessage.classList.add('hidden');
+
+            AppState.registeredRules.forEach(rule => {
+                const card = document.createElement('div');
+                card.className = "rule-card-block bg-slate-50 border border-slate-200 rounded-xl p-3.5 relative hover:border-slate-300 hover:bg-slate-100/50 transition-all group";
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = "absolute top-2.5 left-2.5 text-slate-400 hover:text-rose-600 transition-colors text-base font-bold cursor-pointer";
+                deleteBtn.innerHTML = "&times;";
+                deleteBtn.title = "حذف این قانون نگاشت";
+                deleteBtn.addEventListener('click', () => purgeRuleNodeById(rule.id));
+                card.appendChild(deleteBtn);
+
+                // Type Badge Display Line
+                const typeRow = document.createElement('div');
+                typeRow.className = "flex items-center gap-1.5 mb-2";
+                const badge = document.createElement('span');
+                if(rule.type === 'single') {
+                    badge.className = "bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded";
+                    badge.textContent = "نگاشت تکی دابل‌کلیک";
+                } else {
+                    badge.className = "bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded";
+                    badge.textContent = "نگاشت گروهی Multi-Select";
+                }
+                typeRow.appendChild(badge);
+                card.appendChild(typeRow);
+
+                // Sources parameters layout wrapper block
+                const srcContainer = document.createElement('div');
+                srcContainer.className = "mb-2";
+                const srcLabel = document.createElement('span');
+                srcLabel.className = "text-[11px] font-bold text-slate-400 block mb-0.5";
+                srcLabel.textContent = `اگر ستون (${AppState.selectedSourceColumn}) برابر بود با:`;
+                srcContainer.appendChild(srcLabel);
+
+                const valuesFlex = document.createElement('div');
+                valuesFlex.className = "flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar";
+                rule.sourceValues.forEach(v => {
+                    const vSpan = document.createElement('span');
+                    vSpan.className = "bg-white border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium";
+                    vSpan.textContent = v === "" ? "[مقدار تهی]" : v;
+                    valuesFlex.appendChild(vSpan);
+                });
+                srcContainer.appendChild(valuesFlex);
+                card.appendChild(srcContainer);
+
+                // Target mapped output result visual row
+                const targetContainer = document.createElement('div');
+                targetContainer.className = "bg-white p-2 rounded-lg border border-slate-200/60 flex items-center justify-between";
+                
+                const targetText = document.createElement('div');
+                targetText.className = "text-xs font-semibold text-slate-800";
+                targetText.innerHTML = `<span class="text-slate-400 font-normal">درج مقدار متناظر:</span> <span class="text-emerald-600 font-bold">${rule.targetValue}</span>`;
+                
+                targetContainer.appendChild(targetText);
+                card.appendChild(targetContainer);
+
+                DOM.rulesListContainer.appendChild(card);
+            });
+        }
+
+        /**
+         * Universal utility helper to safely handle CSS transitions when making target modules fully available
+         */
+        function activateUISection(sectionElement) {
+            sectionElement.classList.remove('opacity-50', 'pointer-events-none');
+        }
+
+        /**
+         * Soft resets step configurations states whenever a clean system upload triggers
+         */
+        function resetMappingsAndSelections() {
+            AppState.selectedSourceColumn = '';
+            AppState.uniqueValuesMap = [];
+            AppState.multiSelectedValues = [];
+            AppState.registeredRules = [];
+            
+            DOM.uniqueValuesContainer.classList.add('hidden');
+            DOM.step4Section.classList.add('opacity-50', 'pointer-events-none');
+            
+            renderRulesRegistryLayout();
+        }
+
+        /**
+         * Step 4: Core Transformation Mapping Compiler Engine
+         * Reads the in-memory array representation matrix data structures, applies rule evaluations dynamically row by row,
+         * injects a newly created custom target cell dictionary property attribute, compiles to binary excel workbook streams, and fires automated download triggers.
+         */
+        function executeTransformationAndDownload() {
+            // Enforce validation constraints
+            const targetColName = DOM.newColumnName.value.trim();
+            if(!targetColName) {
+                alert('خطا: لطفاً نام ستون جدید را وارد نمایید (مثال: کشور).');
+                DOM.newColumnName.focus();
+                return;
+            }
+
+            if(AppState.registeredRules.length === 0) {
+                alert('خطا: هنوز هیچ قانون مپینگی ثبت نکرده‌اید.');
+                return;
+            }
+
+            const fallbackDefault = DOM.defaultValue.value.trim();
+
+            // Build accelerated linear lookup indexing structure for optimization O(1) performance calculations during large dataset streaming iterations
+            const operationalRulesLookupMap = {};
+            AppState.registeredRules.forEach(rule => {
+                rule.sourceValues.forEach(sourceVal => {
+                    operationalRulesLookupMap[sourceVal] = rule.targetValue;
+                });
+            });
+
+            // Perform structural Deep Clone mapping matrix pass over internal records state arrays to ensure clean data transformations without mutation artifacts
+            const transformedDataMatrix = AppState.rawWorkbookData.map(rowObject => {
+                // Deep Copy current target cell configurations elements array
+                const clonedRow = { ...rowObject };
+                
+                // Fetch dynamic lookup tracking variable values
+                const currentCellVal = rowObject[AppState.selectedSourceColumn];
+                const cleanKey = currentCellVal !== undefined && currentCellVal !== null ? String(currentCellVal).trim() : "";
+
+                // Intercept transformation registry rules or route into system fallback default criteria variables arrays
+                if (operationalRulesLookupMap.hasOwnProperty(cleanKey)) {
+                    clonedRow[targetColName] = operationalRulesLookupMap[cleanKey];
+                } else {
+                    clonedRow[targetColName] = fallbackDefault; // Can safely bind empty string markers seamlessly
+                }
+
+                return clonedRow;
+            });
+
+            // Invoke SheetJS data streams re-serialization processes pipeline tasks
+            const outputWorksheet = XLSX.utils.json_to_sheet(transformedDataMatrix);
+            const outputWorkbook = XLSX.utils.book_new();
+            
+            XLSX.utils.book_append_sheet(outputWorkbook, outputWorksheet, AppState.sheetName || "TransformedData");
+
+            // Build dynamic naming configurations schemas descriptors titles
+            const rawFilename = DOM.fileInput.files[0]?.name || "processed_data.xlsx";
+            const fileBaseName = rawFilename.substring(0, rawFilename.lastIndexOf('.')) || "data";
+            const finalOutputFilename = `${fileBaseName}_mapped_with_${targetColName}.xlsx`;
+
+            // Fire native localized OS system download binary prompt tasks triggers
+            XLSX.writeFile(outputWorkbook, finalOutputFilename);
+        }
+    </script>
+</body>
+</html>
+
+
