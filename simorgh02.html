@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ابزار پیشرفته نگاشت داده‌های اکسل همراه با Drag & Drop</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700&display=swap');
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Style for drag and drop interactions */
+        .drag-over {
+            border-color: #4f46e5 !important;
+            background-color: #f5f3ff !important;
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+    <header class="bg-gradient-to-r from-indigo-700 to-slate-900 text-white shadow-lg py-6 px-8 mb-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide">Advanced Data Mapping & Transformation Engine</h1>
+                <p class="text-indigo-100 text-sm mt-1">نسخه پیشرفته مجهز به مکانیسم‌های خط‌خوردگی هوشمند، تگ‌های داینامیک و قابلیت کشیدن و رها کردن (Drag & Drop)</p>
+            </div>
+            <div class="bg-white/10 px-4 py-2 rounded-lg text-xs backdrop-blur-sm">
+                <span class="font-bold">حالت ابزار:</span> Vibe Coding Professional v2
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 space-y-6">
+                
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 transition-all hover:shadow-md">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">۱</span>
+                        <h2 class="text-lg font-bold text-slate-900">آپلود فایل اکسل (Excel Upload)</h2>
+                    </div>
+                    
+                    <div class="flex items-center justify-center w-full">
+                        <label for="excel-file" class="flex flex-col items-center justify-center w-full h-36 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-10 h-10 mb-3 text-slate-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                </svg>
+                                <p class="mb-2 text-sm text-slate-500"><span class="font-bold text-indigo-600">برای آپلود کلیک کنید</span> یا فایل را بکشید و رها کنید</p>
+                                <p class="text-xs text-slate-400">XLSX, XLS (ردیف اول به عنوان نام ستون‌ها انتخاب می‌شود)</p>
+                            </div>
+                            <input id="excel-file" type="file" class="hidden" accept=".xlsx, .xls" />
+                        </label>
+                    </div>
+                    <div id="file-info" class="mt-3 text-sm text-emerald-600 font-medium hidden flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span id="file-name-display"></span>
+                    </div>
+                </div>
+
+                <div id="step-2-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 opacity-50 pointer-events-none transition-all">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">۲</span>
+                            <h2 class="text-lg font-bold text-slate-900">انتخاب ستون مبدا و استخراج مقادیر یکتا</h2>
+                        </div>
+                        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">Interactive Data Picker</span>
+                    </div>
+
+                    <div class="mb-5">
+                        <label for="column-select" class="block text-sm font-medium text-slate-700 mb-2">ستون مورد نظر جهت پردازش و استخراج مقادیر را انتخاب کنید:</label>
+                        <select id="column-select" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5">
+                            <option value="" disabled selected>-- ابتدا یک فایل اکسل آپلود کنید --</option>
+                        </select>
+                    </div>
+
+                    <div id="unique-values-container" class="hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-slate-700">مقادیر یکتای یافت شده:</span>
+                            <span id="unique-count-badge" class="text-xs bg-indigo-50 text-indigo-700 font-bold px-2.5 py-1 rounded-full"></span>
+                        </div>
+                        
+                        <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-600 mb-4 leading-relaxed space-y-1">
+                            <p class="font-bold text-indigo-800">راهنمای هوشمند تعامل با داده‌ها:</p>
+                            <p>۱. <strong>دابل کلیک:</strong> باز کردن پاپ‌آپ برای تخصیص یا ویرایش سریع مقدار متناظر تکی.</p>
+                            <p>۲. <strong>تک کلیک (Multi-Select):</strong> انتخاب همزمان چند تگ برای ساخت یک نگاشت گروهی جدید.</p>
+                            <p>۳. <strong>بکشید و رها کنید (Drag & Drop):</strong> هر کدام از تگ‌ها را کشیده و در سایدبار سمت چپ، درون یکی از کارت‌های قوانین رها کنید تا به آن گروه ملحق شود!</p>
+                            <p>۴. <strong>خط قرمز متقاطع:</strong> نشان‌دهنده این است که مقدار با موفقیت در یک قانون نگاشت بکار گرفته شده است.</p>
+                        </div>
+                        
+                        <div id="unique-values-list" class="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 max-h-64 overflow-y-auto custom-scrollbar">
+                            </div>
+
+                        <div id="multi-select-actions" class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between hidden">
+                            <div class="text-xs text-slate-600">
+                                تعداد موارد انتخاب شده برای نگاشت گروهی: <span id="selected-count" class="font-bold text-indigo-600">0</span> مورد
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="clear-selection-btn" class="text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 bg-white transition-all">لغو انتخاب‌ها</button>
+                                <button id="create-group-btn" class="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg font-medium shadow-sm transition-all flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    ایجاد نگاشت گروهی برای انتخاب‌شده‌ها
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="step-4-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 opacity-50 pointer-events-none transition-all">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">۴</span>
+                        <h2 class="text-lg font-bold text-slate-900">ایجاد ستون جدید و خروجی اکسل (Export)</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label for="new-column-name" class="block text-sm font-medium text-slate-700 mb-2">نام ستون جدید (مثلاً: کشور):</label>
+                            <input type="text" id="new-column-name" placeholder="نام ستون مقصد را وارد کنید..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5" />
+                        </div>
+                        <div>
+                            <label for="default-value" class="block text-sm font-medium text-slate-700 mb-2">مقدار پیش‌فرض برای سایر ردیف‌های نگاشت‌نشده (اختیاری):</label>
+                            <input type="text" id="default-value" placeholder="خالی یا مقدار ثابت (مانند: نامشخص)..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5" />
+                        </div>
+                    </div>
+
+                    <button id="process-export-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        اعمال قوانین نگاشت و دانلود فایل اکسل نهایی
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-1">
+                <div id="step-3-section" class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 sticky top-6 transition-all min-h-[440px] flex flex-col">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">۳</span>
+                            <h2 class="text-base font-bold text-slate-900">لیست قوانین نگاشت (Rules)</h2>
+                        </div>
+                        <span id="rules-count" class="text-xs bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded">0 قانون</span>
+                    </div>
+
+                    <div id="rules-list-container" class="flex-grow overflow-y-auto custom-scrollbar space-y-3 max-h-[520px] pr-1 text-sm">
+                        <div id="empty-rules-message" class="text-center py-12 text-slate-400 space-y-2">
+                            <svg class="w-12 h-12 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                            <p class="font-medium text-xs">هیچ قانون نگاشتی تعریف نشده است.</p>
+                            <p class="text-[11px] px-2">با ثبت مپینگ یا رها کردن تگ‌ها در این بخش، قوانین شما در اینجا ظاهر می‌شوند.</p>
+                        </div>
+                        
+                        </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 text-center">
+                        می‌توانید تگ‌ها را کشیده و بر روی کارت قوانین رها کنید.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="mapping-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-100 max-w-md w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="bg-slate-900 p-4 text-white flex justify-between items-center">
+                <h3 id="modal-title" class="text-sm font-bold">تعریف مقدار متناظر جدید</h3>
+                <button id="close-modal-btn" class="text-slate-400 hover:text-white transition-all text-xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <span class="block text-xs font-semibold text-slate-400 mb-1">مقدار یا مقادیر مبدا انتخاب شده:</span>
+                    <div id="modal-source-display" class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 max-h-24 overflow-y-auto custom-scrollbar break-all"></div>
+                </div>
+                <div>
+                    <label for="modal-target-input" class="block text-xs font-semibold text-slate-700 mb-1">مقدار خروجی جدید را وارد نمایید (Value Mapping):</label>
+                    <input type="text" id="modal-target-input" placeholder="مثلاً: italy یا Slovenia" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5" />
+                </div>
+                <div class="flex gap-2 justify-end pt-2">
+                    <button id="modal-cancel-btn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-all">انصراف</button>
+                    <button id="modal-save-btn" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all">ثبت و ذخیره قانون</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Application Architecture State Object (Single Source of Truth)
+        const AppState = {
+            rawWorkbookData: null,   // Parsed rows array from SheetJS
+            sheetName: '',           // Current active tab name string
+            columnHeaders: [],       // Extracted keys list representing headers
+            selectedSourceColumn: '',// Target source column label
+            uniqueValuesMap: [],     // Array of distinct string values
+            multiSelectedValues: [], // Flagged values tracking array
+            registeredRules: [],     // Rules: { id, sourceValues: [], targetValue: '' }
+            currentActiveModalData: null,
+            draggedValueToken: null  // Tracks currently dragged value token via local state
+        };
+
+        // DOM Elements Map
+        const DOM = {
+            fileInput: document.getElementById('excel-file'),
+            fileInfo: document.getElementById('file-info'),
+            fileNameDisplay: document.getElementById('file-name-display'),
+            step2Section: document.getElementById('step-2-section'),
+            step3Section: document.getElementById('step-3-section'),
+            step4Section: document.getElementById('step-4-section'),
+            columnSelect: document.getElementById('column-select'),
+            uniqueValuesContainer: document.getElementById('unique-values-container'),
+            uniqueCountBadge: document.getElementById('unique-count-badge'),
+            uniqueValuesList: document.getElementById('unique-values-list'),
+            multiSelectActions: document.getElementById('multi-select-actions'),
+            selectedCount: document.getElementById('selected-count'),
+            clearSelectionBtn: document.getElementById('clear-selection-btn'),
+            createGroupBtn: document.getElementById('create-group-btn'),
+            rulesListContainer: document.getElementById('rules-list-container'),
+            emptyRulesMessage: document.getElementById('empty-rules-message'),
+            rulesCount: document.getElementById('rules-count'),
+            newColumnName: document.getElementById('new-column-name'),
+            defaultValue: document.getElementById('default-value'),
+            processExportBtn: document.getElementById('process-export-btn'),
+            
+            // Modal DOM
+            mappingModal: document.getElementById('mapping-modal'),
+            modalTitle: document.getElementById('modal-title'),
+            modalSourceDisplay: document.getElementById('modal-source-display'),
+            modalTargetInput: document.getElementById('modal-target-input'),
+            closeModalBtn: document.getElementById('close-modal-btn'),
+            modalCancelBtn: document.getElementById('modal-cancel-btn'),
+            modalSaveBtn: document.getElementById('modal-save-btn')
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            DOM.fileInput.addEventListener('change', handleExcelFileUpload);
+            DOM.columnSelect.addEventListener('change', handleColumnSelectionChange);
+            DOM.clearSelectionBtn.addEventListener('click', clearMultiSelectionState);
+            DOM.createGroupBtn.addEventListener('click', initGroupMappingModal);
+            
+            DOM.closeModalBtn.addEventListener('click', closeModal);
+            DOM.modalCancelBtn.addEventListener('click', closeModal);
+            DOM.modalSaveBtn.addEventListener('click', commitModalMappingRule);
+            DOM.modalTargetInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') commitModalMappingRule(); });
+            
+            DOM.processExportBtn.addEventListener('click', executeTransformationAndDownload);
+        });
+
+        /**
+         * Parsing spreadsheet inputs cleanly via SheetJS pipelines
+         */
+        function handleExcelFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            DOM.fileNameDisplay.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            DOM.fileInfo.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', defval: "" });
+                
+                AppState.sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[AppState.sheetName];
+                
+                const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (jsonRows.length === 0) {
+                    alert('خطا: فایل اکسل بارگذاری شده فاقد اطلاعات است.');
+                    return;
+                }
+
+                AppState.columnHeaders = jsonRows[0].map(h => String(h || '').trim());
+                AppState.rawWorkbookData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                populateColumnDropdownSelector();
+                activateUISection(DOM.step2Section);
+                resetMappingsAndSelections();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function populateColumnDropdownSelector() {
+            DOM.columnSelect.innerHTML = '<option value="" disabled selected>-- یک ستون را انتخاب نمایید --</option>';
+            AppState.columnHeaders.forEach(header => {
+                if(header) {
+                    const opt = document.createElement('option');
+                    opt.value = header;
+                    opt.textContent = header;
+                    DOM.columnSelect.appendChild(opt);
+                }
+            });
+        }
+
+        function handleColumnSelectionChange(event) {
+            AppState.selectedSourceColumn = event.target.value;
+            if(!AppState.selectedSourceColumn) return;
+
+            const distinctSet = new Set();
+            AppState.rawWorkbookData.forEach(row => {
+                const val = row[AppState.selectedSourceColumn];
+                distinctSet.add(val !== undefined && val !== null ? String(val).trim() : "");
+            });
+
+            AppState.uniqueValuesMap = Array.from(distinctSet).sort();
+            AppState.multiSelectedValues = [];
+            
+            DOM.uniqueCountBadge.textContent = `${AppState.uniqueValuesMap.length} مقدار یکتا`;
+            DOM.uniqueValuesContainer.classList.remove('hidden');
+            
+            renderUniqueValueItemTags();
+            updateMultiSelectBarVisibility();
+        }
+
+        /**
+         * Helper check to determine if a specific value exists anywhere inside the rule registries
+         */
+        function isValueTokenMapped(value) {
+            return AppState.registeredRules.some(rule => rule.sourceValues.includes(value));
+        }
+
+        /**
+         * Appends visual tags in grid layout, computing line-through decoration state context
+         */
+        function renderUniqueValueItemTags() {
+            DOM.uniqueValuesList.innerHTML = '';
+            
+            AppState.uniqueValuesMap.forEach(value => {
+                const isMapped = isValueTokenMapped(value);
+                const displayLabel = value === "" ? "[مقدار تهی / Blank]" : value;
+                
+                const itemDiv = document.createElement('div');
+                
+                // Inject structural Tailwind styles containing red strikethrough if isMapped is true
+                let classList = `px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all select-none duration-150 flex items-center gap-1.5 relative`;
+                
+                if (isMapped) {
+                    classList += ` bg-rose-50/60 border-rose-200 text-slate-400 line-through decoration-rose-500 decoration-2 opacity-75`;
+                } else if (AppState.multiSelectedValues.includes(value)) {
+                    classList += ` bg-indigo-50 border-indigo-500 text-indigo-700 shadow-xs`;
+                } else {
+                    classList += ` bg-white border-slate-200 text-slate-700 hover:border-slate-400 hover:bg-slate-50`;
+                }
+                
+                itemDiv.className = classList;
+                itemDiv.dataset.rawValue = value;
+                
+                // Enable standard HTML5 Native Draggable feature properties hooks
+                itemDiv.setAttribute('draggable', 'true');
+                
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = displayLabel;
+                if(value === "") labelSpan.className = "text-slate-400 italic";
+                itemDiv.appendChild(labelSpan);
+
+                if(AppState.multiSelectedValues.includes(value) && !isMapped) {
+                    const checkMark = document.createElement('span');
+                    checkMark.innerHTML = '&#10003;';
+                    checkMark.className = 'font-bold text-indigo-600';
+                    itemDiv.appendChild(checkMark);
+                }
+
+                // Interaction Action Event Hooks
+                itemDiv.addEventListener('click', () => {
+                    toggleValueMultiSelectionState(value);
+                });
+
+                itemDiv.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    initSingleMappingModal(value);
+                });
+
+                // Drag And Drop Initialization Event Hooks
+                itemDiv.addEventListener('dragstart', (e) => {
+                    AppState.draggedValueToken = value;
+                    e.dataTransfer.setData('text/plain', value);
+                    itemDiv.classList.add('opacity-40');
+                });
+
+                itemDiv.addEventListener('dragend', () => {
+                    itemDiv.classList.remove('opacity-40');
+                    AppState.draggedValueToken = null;
+                });
+
+                DOM.uniqueValuesList.appendChild(itemDiv);
+            });
+        }
+
+        function toggleValueMultiSelectionState(value) {
+            const index = AppState.multiSelectedValues.indexOf(value);
+            if(index > -1) {
+                AppState.multiSelectedValues.splice(index, 1);
+            } else {
+                AppState.multiSelectedValues.push(value);
+            }
+            renderUniqueValueItemTags();
+            updateMultiSelectBarVisibility();
+        }
+
+        function clearMultiSelectionState() {
+            AppState.multiSelectedValues = [];
+            renderUniqueValueItemTags();
+            updateMultiSelectBarVisibility();
+        }
+
+        function updateMultiSelectBarVisibility() {
+            if(AppState.multiSelectedValues.length > 0) {
+                DOM.selectedCount.textContent = AppState.multiSelectedValues.length;
+                DOM.multiSelectActions.classList.remove('hidden');
+            } else {
+                DOM.multiSelectActions.classList.add('hidden');
+            }
+        }
+
+        function initSingleMappingModal(value) {
+            AppState.currentActiveModalData = { type: 'single', sourceValues: [value] };
+            DOM.modalTitle.textContent = 'تنظیم نگاشت تکی (Double-Click Value Mapping)';
+            DOM.modalSourceDisplay.textContent = value === "" ? "[مقدار تهی / Blank]" : `مقدار یکتا: "${value}"`;
+            
+            const existingRule = AppState.registeredRules.find(r => r.sourceValues.includes(value));
+            DOM.modalTargetInput.value = existingRule ? existingRule.targetValue : '';
+            openModal();
+        }
+
+        function initGroupMappingModal() {
+            if(AppState.multiSelectedValues.length === 0) return;
+            AppState.currentActiveModalData = { type: 'multi', sourceValues: [...AppState.multiSelectedValues] };
+            DOM.modalTitle.textContent = `تنظیم نگاشت گروهی (${AppState.multiSelectedValues.length} مقدار همزمان)`;
+            DOM.modalSourceDisplay.textContent = AppState.multiSelectedValues.map(v => v === "" ? "[تهی]" : `"${v}"`).join(' ، ');
+            DOM.modalTargetInput.value = '';
+            openModal();
+        }
+
+        function openModal() {
+            DOM.mappingModal.classList.remove('hidden');
+            setTimeout(() => {
+                DOM.mappingModal.classList.remove('opacity-0');
+                DOM.mappingModal.firstElementChild.classList.remove('scale-95');
+                DOM.modalTargetInput.focus();
+            }, 5);
+        }
+
+        function closeModal() {
+            DOM.mappingModal.classList.add('opacity-0');
+            DOM.mappingModal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                DOM.mappingModal.classList.add('hidden');
+                AppState.currentActiveModalData = null;
+            }, 200);
+        }
+
+        function commitModalMappingRule() {
+            const targetVal = DOM.modalTargetInput.value.trim();
+            if(!targetVal) {
+                alert('لطفاً مقدار جایگزین متناظر را وارد نمایید.');
+                return;
+            }
+
+            const context = AppState.currentActiveModalData;
+            if(!context) return;
+
+            // Purge overlapping entries across all prior groups to ensure deterministic structural integrity
+            AppState.registeredRules.forEach(rule => {
+                rule.sourceValues = rule.sourceValues.filter(v => !context.sourceValues.includes(v));
+            });
+            cleanEmptyRuleNodes();
+
+            const newRuleNode = {
+                id: 'rule_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                sourceValues: context.sourceValues,
+                targetValue: targetVal
+            };
+
+            AppState.registeredRules.push(newRuleNode);
+            
+            clearMultiSelectionState();
+            closeModal();
+            renderRulesRegistryLayout();
+            renderUniqueValueItemTags();
+            
+            if(AppState.registeredRules.length > 0) activateUISection(DOM.step4Section);
+        }
+
+        /**
+         * Cleans out any mapping rules that have empty source arrays left behind after node extractions
+         */
+        function cleanEmptyRuleNodes() {
+            AppState.registeredRules = AppState.registeredRules.filter(r => r.sourceValues.length > 0);
+        }
+
+        /**
+         * Feature 3: Splices out an isolated specific string element tag from a rule card block
+         */
+        function removeValueTokenFromRule(ruleId, valueToken) {
+            const targetRule = AppState.registeredRules.find(r => r.id === ruleId);
+            if(!targetRule) return;
+
+            targetRule.sourceValues = targetRule.sourceValues.filter(v => v !== valueToken);
+            cleanEmptyRuleNodes();
+            
+            renderRulesRegistryLayout();
+            renderUniqueValueItemTags();
+
+            if(AppState.registeredRules.length === 0) {
+                DOM.step4Section.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function deleteWholeRuleNode(ruleId) {
+            AppState.registeredRules = AppState.registeredRules.filter(r => r.id !== ruleId);
+            renderRulesRegistryLayout();
+            renderUniqueValueItemTags();
+            
+            if(AppState.registeredRules.length === 0) {
+                DOM.step4Section.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        /**
+         * Feature 2: Drag and Drop append handler
+         * Injects dropped value token into target rule node, auto clearing overlap instances elsewhere
+         */
+        function injectValueTokenIntoExistingRule(ruleId, valueToken) {
+            // First drop valueToken out of any other group it is currently attached to
+            AppState.registeredRules.forEach(rule => {
+                rule.sourceValues = rule.sourceValues.filter(v => v !== valueToken);
+            });
+
+            // Push into target rules structure array
+            const targetRule = AppState.registeredRules.find(r => r.id === ruleId);
+            if(targetRule && !targetRule.sourceValues.includes(valueToken)) {
+                targetRule.sourceValues.push(valueToken);
+            }
+
+            cleanEmptyRuleNodes();
+            renderRulesRegistryLayout();
+            renderUniqueValueItemTags();
+        }
+
+        /**
+         * Rendering rules list sidebar panel along with structural Drop Zones configurations
+         */
+        function renderRulesRegistryLayout() {
+            const existingBlocks = DOM.rulesListContainer.querySelectorAll('.rule-card-block');
+            existingBlocks.forEach(b => b.remove());
+
+            DOM.rulesCount.textContent = `${AppState.registeredRules.length} قانون`;
+
+            if(AppState.registeredRules.length === 0) {
+                DOM.emptyRulesMessage.classList.remove('hidden');
+                return;
+            }
+
+            DOM.emptyRulesMessage.classList.add('hidden');
+
+            AppState.registeredRules.forEach(rule => {
+                const card = document.createElement('div');
+                // Added border-dashed to specify drop area zone styles
+                card.className = "rule-card-block bg-slate-50 border-2 border-slate-200 rounded-xl p-3.5 relative transition-all duration-150 space-y-2 group";
+                card.dataset.ruleId = rule.id;
+
+                // ATTACH DRAG & DROP ZONE LISTENERS TO THE CARD CONTAINER NODE
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault(); // Required to allow drop action triggering
+                    card.classList.add('drag-over');
+                });
+
+                card.addEventListener('dragleave', () => {
+                    card.classList.remove('drag-over');
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over');
+                    const droppedValue = e.dataTransfer.getData('text/plain') || AppState.draggedValueToken;
+                    if (droppedValue !== null && droppedValue !== undefined) {
+                        injectValueTokenIntoExistingRule(rule.id, droppedValue);
+                    }
+                });
+
+                // Delete Whole Rule Button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = "absolute top-2.5 left-2.5 text-slate-400 hover:text-rose-600 transition-colors text-base font-bold cursor-pointer z-10";
+                deleteBtn.innerHTML = "&times;";
+                deleteBtn.title = "حذف کامل این قانون";
+                deleteBtn.addEventListener('click', () => deleteWholeRuleNode(rule.id));
+                card.appendChild(deleteBtn);
+
+                // Meta Info Banner Block Line
+                const badgeRow = document.createElement('div');
+                badgeRow.className = "flex items-center gap-2";
+                const badge = document.createElement('span');
+                badge.className = "bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded";
+                badge.textContent = rule.sourceValues.length > 1 ? "قانون مپینگ گروهی" : "قانون مپینگ تکی";
+                badgeRow.appendChild(badge);
+                
+                // Dropzone helper hint text
+                const hint = document.createElement('span');
+                hint.className = "text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity font-medium";
+                hint.textContent = "آیتم را اینجا رها کنید (Drop)";
+                badgeRow.appendChild(hint);
+                card.appendChild(badgeRow);
+
+                // Sources elements list container wrapper
+                const srcContainer = document.createElement('div');
+                srcContainer.className = "space-y-1";
+                const srcLabel = document.createElement('span');
+                srcLabel.className = "text-[11px] font-bold text-slate-400 block";
+                srcLabel.textContent = `اگر ستون (${AppState.selectedSourceColumn}) برابر بود با:`;
+                srcContainer.appendChild(srcLabel);
+
+                const tagsFlex = document.createElement('div');
+                tagsFlex.className = "flex flex-wrap gap-1.5 max-h-24 overflow-y-auto custom-scrollbar p-1";
+                
+                // BUILD SEPARATE TAG ITEMS CONTAINING INDIVIDUAL CLOSE INTEGRATION BUTTONS (Feature 3)
+                rule.sourceValues.forEach(value => {
+                    const tagSpan = document.createElement('span');
+                    tagSpan.className = "bg-white border border-slate-200 text-slate-800 pl-1 pr-2 py-0.5 rounded-lg text-[11px] font-medium flex items-center gap-1 shadow-2xs hover:border-slate-300";
+                    
+                    const label = document.createElement('span');
+                    label.textContent = value === "" ? "[مقدار تهی]" : value;
+                    tagSpan.appendChild(label);
+
+                    // Dynamic splice execution inline close button item
+                    const closeX = document.createElement('button');
+                    closeX.className = "text-slate-400 hover:text-rose-600 transition-colors font-bold text-[11px] ml-0.5 cursor-pointer px-0.5";
+                    closeX.innerHTML = "&times;";
+                    closeX.title = `خارج کردن "${value}" از این قانون`;
+                    closeX.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeValueTokenFromRule(rule.id, value);
+                    });
+                    
+                    tagSpan.appendChild(closeX);
+                    tagsFlex.appendChild(tagSpan);
+                });
+                srcContainer.appendChild(tagsFlex);
+                card.appendChild(srcContainer);
+
+                // Target mapped compilation block visual box container row
+                const targetBox = document.createElement('div');
+                targetBox.className = "bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between shadow-3xs";
+                targetBox.innerHTML = `<div class="text-xs font-semibold text-slate-800"><span class="text-slate-400 font-normal">درج مقدار متناظر:</span> <span class="text-emerald-600 font-bold">${rule.targetValue}</span></div>`;
+                card.appendChild(targetBox);
+
+                DOM.rulesListContainer.appendChild(card);
+            });
+        }
+
+        function activateUISection(sectionElement) {
+            sectionElement.classList.remove('opacity-50', 'pointer-events-none');
+        }
+
+        function resetMappingsAndSelections() {
+            AppState.selectedSourceColumn = '';
+            AppState.uniqueValuesMap = [];
+            AppState.multiSelectedValues = [];
+            AppState.registeredRules = [];
+            DOM.uniqueValuesContainer.classList.add('hidden');
+            DOM.step4Section.classList.add('opacity-50', 'pointer-events-none');
+            renderRulesRegistryLayout();
+        }
+
+        /**
+         * Step 4 Transformation Compiler Processing Tasks
+         */
+        function executeTransformationAndDownload() {
+            const targetColName = DOM.newColumnName.value.trim();
+            if(!targetColName) {
+                alert('خطا: لطفا نام ستون جدید را وارد نمایید.');
+                DOM.newColumnName.focus();
+                return;
+            }
+
+            if(AppState.registeredRules.length === 0) {
+                alert('خطا: هیچ قانون مپینگی ثبت نشده است.');
+                return;
+            }
+
+            const fallbackDefault = DOM.defaultValue.value.trim();
+
+            const operationalRulesLookupMap = {};
+            AppState.registeredRules.forEach(rule => {
+                rule.sourceValues.forEach(sourceVal => {
+                    operationalRulesLookupMap[sourceVal] = rule.targetValue;
+                });
+            });
+
+            const transformedDataMatrix = AppState.rawWorkbookData.map(rowObject => {
+                const clonedRow = { ...rowObject };
+                const currentCellVal = rowObject[AppState.selectedSourceColumn];
+                const cleanKey = currentCellVal !== undefined && currentCellVal !== null ? String(currentCellVal).trim() : "";
+
+                if (operationalRulesLookupMap.hasOwnProperty(cleanKey)) {
+                    clonedRow[targetColName] = operationalRulesLookupMap[cleanKey];
+                } else {
+                    clonedRow[targetColName] = fallbackDefault;
+                }
+                return clonedRow;
+            });
+
+            const outputWorksheet = XLSX.utils.json_to_sheet(transformedDataMatrix);
+            const outputWorkbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(outputWorkbook, outputWorksheet, AppState.sheetName || "TransformedData");
+
+            const rawFilename = DOM.fileInput.files[0]?.name || "processed_data.xlsx";
+            const fileBaseName = rawFilename.substring(0, rawFilename.lastIndexOf('.')) || "data";
+            const finalOutputFilename = `${fileBaseName}_mapped_with_${targetColName}.xlsx`;
+
+            XLSX.writeFile(outputWorkbook, finalOutputFilename);
+        }
+    </script>
+</body>
+</html>
