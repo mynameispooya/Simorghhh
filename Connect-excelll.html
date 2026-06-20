@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت و انتقال هوشمند داده‌های Excel</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #27ae60;
+            --danger-color: #e74c3c;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #dcdde1;
+            --download-color: #2980b9;
+            --history-color: #8e44ad;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .upload-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px dashed var(--border-color);
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            border-color: var(--accent-color);
+        }
+
+        .file-input-label {
+            background: var(--accent-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        #excel-file-input {
+            display: none;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sidebar {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            max-height: 85vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .content-area {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 5px;
+        }
+
+        .list-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            background: var(--bg-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-item:hover, .list-item.active {
+            background: #e2e8f0;
+            border-right: 4px solid var(--primary-color);
+        }
+
+        .file-control-box {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+        }
+
+        .file-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .search-box:focus {
+            border-color: var(--primary-color);
+        }
+
+        .data-table-container {
+            overflow-x: auto;
+            max-height: 400px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: right;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.95rem;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background-color: #f1f2f6;
+        }
+
+        .action-panel {
+            background: #f1f2f6;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-panel.visible {
+            display: flex;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+            text-align: center;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-accent { background-color: var(--accent-color); color: white; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-download { 
+            background-color: var(--download-color); 
+            color: white; 
+            padding: 4px 8px; 
+            font-size: 0.8rem; 
+            border-radius: 4px;
+            text-align: center;
+            margin-top: 3px;
+        }
+        .btn-history {
+            background-color: var(--history-color);
+            color: white;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: white;
+            min-width: 150px;
+        }
+
+        .badge {
+            background: #7f8c8d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+        
+        .badge-count {
+            background: var(--primary-color);
+        }
+
+        .info-text {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>سیستم مدیریت، انتقال و گزارش‌گیری هوشمند داده‌های Excel</h1>
+        <p>مبتنی بر معماری ساختاریافته فرانت‌اند، ثبت گام‌به‌گام تاریخچه عملیات و خروجی زنده</p>
+    </header>
+
+    <div class="upload-section">
+        <p>فایل‌های اکسل خود را انتخاب یا به این منطقه بکشید (امکان آپلود همزمان چند فایل)</p>
+        <label class="file-input-label">
+            انتخاب فایل‌های Excel
+            <input type="file" id="excel-file-input" multiple accept=".xlsx, .xls">
+        </label>
+        <div id="file-list-summary" style="margin-top: 10px; font-weight: bold; color: var(--accent-color);"></div>
+    </div>
+
+    <div class="main-layout">
+        <div class="sidebar">
+            <div>
+                <div class="section-title">فایل‌های بارگذاری شده</div>
+                <div id="files-container"></div>
+            </div>
+            
+            <div>
+                <div class="section-title">ستون‌های فایل انتخاب شده</div>
+                <div id="columns-container"></div>
+            </div>
+
+            <div style="margin-top: auto; border-top: 2px solid var(--bg-color); padding-top: 10px;">
+                <div class="section-title" style="font-size: 0.95rem;">تاریخچه و عملیات سیستم</div>
+                <button id="btn-download-history" class="btn btn-history">📂 دانلود تاریخچه تغییرات (TXT)</button>
+                <div id="history-summary-text" class="info-text" style="margin-top: 5px; text-align: center;">هنوز تغییری ثبت نشده است.</div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div>
+                <div class="section-title">جستجو و فیلتر مقادیر ستون</div>
+                <input type="text" id="search-input" class="search-box" placeholder="عبارت مورد نظر را برای فیلتر و گلچین کردن بنویسید..." disabled>
+            </div>
+
+            <div id="action-panel" class="action-panel">
+                <div class="section-title" style="margin-bottom: 5px; font-size: 1rem;">عملیات انتقال ردیف انتخاب شده</div>
+                <div class="info-text" id="selected-info-text"></div>
+                <div class="flex-row">
+                    <button id="btn-copy" class="btn btn-primary">کپی ردیف (Copy)</button>
+                    <button id="btn-cut" class="btn btn-danger">برش ردیف (Cut)</button>
+                    
+                    <div id="paste-options" style="display: none;" class="flex-row">
+                        <span>انتقال به فایل:</span>
+                        <select id="target-file-select"></select>
+                        <span>ستون مقصد:</span>
+                        <select id="target-column-select"></select>
+                        <button id="btn-paste" class="btn btn-accent">اعمال و قراردهی (Paste)</button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">مقادیر و فراوانی (۱۰ ردیف اول پیش‌فرض / نتایج جستجو)</div>
+                <div class="data-table-container">
+                    <table id="data-table">
+                        <thead>
+                            <tr id="table-header">
+                                <th>مقدار (Value)</th>
+                                <th>تعداد تکرار در ستون</th>
+                                <th>مختصات اصلی (ردیف)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: #7f8c8d;">هنوز فایلی انتخاب نشده است.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // دیتای مرکزی برنامه (Central State Management)
+        const appState = {
+            files: {}, // ساختار داده: { fileName: { headers: [], rows: [] } }
+            currentFile: null,
+            currentColumn: null,
+            selectedRowData: null, 
+            selectedRowIndex: null, 
+            selectedColumnName: null,
+            clipboardAction: null, 
+            sourceFileName: null,
+            changeHistory: [] // هاب نگهداری تاریخچه به صورت آرایه‌ای از رشته‌ها
+        };
+
+        // المان‌های DOM
+        const fileInput = document.getElementById('excel-file-input');
+        const filesContainer = document.getElementById('files-container');
+        const columnsContainer = document.getElementById('columns-container');
+        const searchInput = document.getElementById('search-input');
+        const tableBody = document.getElementById('table-body');
+        const actionPanel = document.getElementById('action-panel');
+        const selectedInfoText = document.getElementById('selected-info-text');
+        const btnCopy = document.getElementById('btn-copy');
+        const btnCut = document.getElementById('btn-cut');
+        const btnPaste = document.getElementById('btn-paste');
+        const pasteOptions = document.getElementById('paste-options');
+        const targetFileSelect = document.getElementById('target-file-select');
+        const targetColumnSelect = document.getElementById('target-column-select');
+        const btnDownloadHistory = document.getElementById('btn-download-history');
+        const historySummaryText = document.getElementById('history-summary-text');
+
+        // تابع کمکی برای پاکسازی متون از کاراکترهای مخرب HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // تابع ثبت لاگ و تاریخچه عملیات (Step-by-Step Logger)
+        function logAction(actionText) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fa-IR');
+            const dateString = now.toLocaleDateString('fa-IR');
+            const logEntry = `[${dateString} - ${timeString}] ${actionText}`;
+            
+            appState.changeHistory.push(logEntry);
+            
+            // به روز رسانی متن خلاصه تعداد سوابق در سایدبار
+            historySummaryText.innerText = `${appState.changeHistory.length} گام عملیاتی ثبت شده است.`;
+        }
+
+        // ۱. رویداد بارگذاری فایل‌ها
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            let loadedCount = 0;
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    
+                    let headers = [];
+                    if (jsonData.length > 0) {
+                        headers = Object.keys(jsonData[0]);
+                    }
+
+                    const processedRows = jsonData.map((row, index) => ({
+                        ...row,
+                        __rowNum: index + 2 
+                    }));
+
+                    appState.files[file.name] = {
+                        headers: headers,
+                        rows: processedRows
+                    };
+
+                    loadedCount++;
+                    if (loadedCount === files.length) {
+                        document.getElementById('file-list-summary').innerText = `${loadedCount} فایل با موفقیت بارگذاری شد.`;
+                        logAction(`بارگذاری اولیه تعداد ${loadedCount} فایل اکسل جدید در سیستم.`);
+                        renderFilesList();
+                        updateTargetFileDropdown();
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // ۲. رندر کردن لیست فایل‌ها در سایدبار به همراه دکمه دانلود خروجی (Modified)
+        function renderFilesList() {
+            filesContainer.innerHTML = '';
+            Object.keys(appState.files).forEach(fileName => {
+                const mainDiv = document.createElement('div');
+                mainDiv.className = `list-item ${appState.currentFile === fileName ? 'active' : ''}`;
+                
+                const controlBox = document.createElement('div');
+                controlBox.className = 'file-control-box';
+
+                const infoRow = document.createElement('div');
+                infoRow.className = 'file-info-row';
+                infoRow.innerHTML = `<span>${escapeHtml(fileName)}</span> <span class="badge">${appState.files[fileName].rows.length} ردیف</span>`;
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'btn btn-download';
+                downloadBtn.innerText = '⬇ دانلود نسخه ویرایش شده';
+                
+                downloadBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    exportModifiedExcel(fileName);
+                };
+
+                controlBox.appendChild(infoRow);
+                controlBox.appendChild(downloadBtn);
+                mainDiv.appendChild(controlBox);
+
+                mainDiv.onclick = () => selectFile(fileName);
+                filesContainer.appendChild(mainDiv);
+            });
+        }
+
+        function selectFile(fileName) {
+            appState.currentFile = fileName;
+            appState.currentColumn = null;
+            renderFilesList();
+            renderColumnsList(fileName);
+            tableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #7f8c8d;">لطفاً یک ستون را انتخاب کنید.</td></tr>`;
+            searchInput.disabled = true;
+            searchInput.value = '';
+            actionPanel.classList.remove('visible');
+        }
+
+        // ۳. رندر کردن ستون‌های فایل انتخاب شده
+        function renderColumnsList(fileName) {
+            columnsContainer.innerHTML = '';
+            const headers = appState.files[fileName].headers;
+            
+            headers.forEach(header => {
+                const div = document.createElement('div');
+                div.className = `list-item ${appState.currentColumn === header ? 'active' : ''}`;
+                div.innerText = header;
+                div.onclick = () => selectColumn(header);
+                columnsContainer.appendChild(div);
+            });
+        }
+
+        function selectColumn(columnName) {
+            appState.currentColumn = columnName;
+            const children = columnsContainer.children;
+            for(let child of children) {
+                if(child.innerText === columnName) child.classList.add('active');
+                else child.classList.remove('active');
+            }
+            
+            searchInput.disabled = false;
+            searchInput.value = '';
+            renderColumnData();
+        }
+
+        // ۴. محاسبات فراوانی و رندر داده‌های ستون
+        function renderColumnData(filterText = '') {
+            if (!appState.currentFile || !appState.currentColumn) return;
+
+            const rows = appState.files[appState.currentFile].rows;
+            const colName = appState.currentColumn;
+
+            const frequencyMap = {};
+            rows.forEach(row => {
+                const val = String(row[colName] || '').trim();
+                frequencyMap[val] = (frequencyMap[val] || 0) + 1;
+            });
+
+            let filteredRows = rows;
+            if (filterText.trim() !== '') {
+                filteredRows = rows.filter(row => 
+                    String(row[colName] || '').toLowerCase().includes(filterText.toLowerCase())
+                );
+            }
+
+            tableBody.innerHTML = '';
+
+            const displayRows = filterText.trim() === '' ? filteredRows.slice(0, 10) : filteredRows;
+
+            if (displayRows.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #7f8c8d;">هیچ مقداری یافت نشد.</td></tr>`;
+                return;
+            }
+
+            displayRows.forEach(row => {
+                const value = row[colName] !== undefined && row[colName] !== null ? row[colName] : '(خالی)';
+                const freq = frequencyMap[String(value).trim()] || 1;
+                const rowNum = row.__rowNum;
+
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.innerHTML = `
+                    <td style="font-weight: bold; color: var(--primary-color);">${escapeHtml(value)}</td>
+                    <td><span class="badge badge-count">${freq}</span></td>
+                    <td>ردیف ${rowNum}</td>
+                `;
+
+                tr.addEventListener('click', () => {
+                    prepareRowAction(row, rowNum, value, colName);
+                });
+                
+                tableBody.appendChild(tr);
+            });
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            renderColumnData(e.target.value);
+        });
+
+        // ۵. آماده‌سازی ردیف جهت کپی یا کات
+        function prepareRowAction(row, originalIndex, value, colName) {
+            appState.selectedRowData = { ...row }; 
+            appState.selectedRowIndex = originalIndex;
+            appState.selectedColumnName = colName;
+            appState.sourceFileName = appState.currentFile;
+
+            selectedInfoText.innerHTML = `آیتم انتخاب شده: <strong>"${escapeHtml(value)}"</strong> واقع در ستون <strong>"${escapeHtml(colName)}"</strong>، ردیف <strong>${originalIndex}</strong> از فایل <strong>${escapeHtml(appState.sourceFileName)}</strong>`;
+            actionPanel.classList.add('visible');
+            pasteOptions.style.display = 'none'; 
+        }
+
+        // ۶. دکمه‌های کپی و کات
+        btnCopy.addEventListener('click', () => {
+            appState.clipboardAction = 'copy';
+            pasteOptions.style.display = 'flex';
+            alert('اطلاعات کل ردیف به حافظه موقت کپی شد. اکنون فایل و ستون مقصد را تعیین کنید.');
+        });
+
+        btnCut.addEventListener('click', () => {
+            appState.clipboardAction = 'cut';
+            pasteOptions.style.display = 'flex';
+            alert('اطلاعات کل ردیف برش (Cut) داده شد. پس از پیست، ردیف مبدا حذف و ردیف‌های پایینی جابجا خواهند شد.');
+        });
+
+        function updateTargetFileDropdown() {
+            targetFileSelect.innerHTML = '';
+            Object.keys(appState.files).forEach(fileName => {
+                const opt = document.createElement('option');
+                opt.value = fileName;
+                opt.innerText = fileName;
+                targetFileSelect.appendChild(opt);
+            });
+            updateTargetColumnDropdown();
+        }
+
+        targetFileSelect.addEventListener('change', updateTargetColumnDropdown);
+
+        function updateTargetColumnDropdown() {
+            targetColumnSelect.innerHTML = '';
+            const targetFile = targetFileSelect.value;
+            if (!targetFile) return;
+
+            appState.files[targetFile].headers.forEach(header => {
+                const opt = document.createElement('option');
+                opt.value = header;
+                opt.innerText = header;
+                targetColumnSelect.appendChild(opt);
+            });
+        }
+
+        // ۷. منطق اصلی Paste و جابجایی داده‌ها به همراه ثبت هوشمند لاگ تغییرات
+        btnPaste.addEventListener('click', () => {
+            const targetFileName = targetFileSelect.value;
+            const targetColumnName = targetColumnSelect.value;
+            const sourceFileName = appState.sourceFileName;
+
+            if (!targetFileName || !targetColumnName) {
+                alert('لطفاً فایل و ستون مقصد را مشخص کنید.');
+                return;
+            }
+
+            const movingValue = appState.selectedRowData[appState.selectedColumnName];
+
+            const isDuplicate = appState.files[targetFileName].rows.some(row => 
+                String(row[targetColumnName] || '').trim() === String(movingValue).trim()
+            );
+
+            let proceed = true;
+            let replaceMode = false;
+
+            if (isDuplicate) {
+                const userChoice = confirm(`هشدار: مقدار "${movingValue}" در ستون "${targetColumnName}" فایل مقصد (${targetFileName}) تکراری است!\n\nآیا می‌خواهید ردیف جدید اضافه شود؟ (OK را بزنید)\nیا می‌خواهید روی ردیف تکراری قبلی جایگزین (Replace) شود؟ (Cancel را بزنید)`);
+                if (!userChoice) {
+                    replaceMode = true; 
+                }
+            }
+
+            let newRowForTarget = {};
+            appState.files[targetFileName].headers.forEach(header => {
+                if (header === targetColumnName) {
+                    newRowForTarget[header] = movingValue;
+                } else {
+                    newRowForTarget[header] = appState.selectedRowData[header] || "";
+                }
+            });
+
+            let logMessage = "";
+
+            if (replaceMode) {
+                const dupIndex = appState.files[targetFileName].rows.findIndex(row => 
+                    String(row[targetColumnName] || '').trim() === String(movingValue).trim()
+                );
+                if (dupIndex !== -1) {
+                    const targetOldRowNum = appState.files[targetFileName].rows[dupIndex].__rowNum;
+                    newRowForTarget.__rowNum = targetOldRowNum;
+                    appState.files[targetFileName].rows[dupIndex] = newRowForTarget;
+                    
+                    logMessage = `عملیات [${appState.clipboardAction.toUpperCase()}]: مقدار "${movingValue}" از فایل "${sourceFileName}" (ردیف ${appState.selectedRowIndex}) منتقل شد و روی ردیف تکراری قبلی (ردیف ${targetOldRowNum}) در ستون "${targetColumnName}" از فایل مقصد "${targetFileName}" جایگزین (Replace) گردید.`;
+                }
+            } else {
+                const nextExcelRowNum = appState.files[targetFileName].rows.length + 2;
+                newRowForTarget.__rowNum = nextExcelRowNum;
+                appState.files[targetFileName].rows.push(newRowForTarget);
+                
+                logMessage = `عملیات [${appState.clipboardAction.toUpperCase()}]: مقدار "${movingValue}" از فایل "${sourceFileName}" (ردیف ${appState.selectedRowIndex}) منتقل شد و به عنوان ردیف جدید (ردیف ${nextExcelRowNum}) به انتهای ستون "${targetColumnName}" در فایل مقصد "${targetFileName}" الحاق (Append) گردید.`;
+            }
+
+            if (appState.clipboardAction === 'cut') {
+                const sourceRows = appState.files[sourceFileName].rows;
+                const updatedRows = sourceRows.filter(row => row.__rowNum !== appState.selectedRowIndex);
+                
+                updatedRows.forEach((row, idx) => {
+                    row.__rowNum = idx + 2; 
+                });
+
+                appState.files[sourceFileName].rows = updatedRows;
+                logMessage += ` ضمناً ردیف خالی‌شده در فایل مبدا حذف گردید و ردیف‌های پایینی شیفت پیدا کردند.`;
+            }
+
+            // ثبت رویداد در تاریخچه سیستم
+            logAction(logMessage);
+
+            alert('عملیات جابجایی داده‌ها با موفقیت انجام و در تاریخچه سیستم ثبت شد.');
+            actionPanel.classList.remove('visible');
+            
+            renderFilesList();
+            renderColumnData(searchInput.value);
+        });
+
+        // ۸. دانلود فایل اکسل خروجی
+        function exportModifiedExcel(fileName) {
+            const fileData = appState.files[fileName];
+            if (!fileData) return;
+
+            const cleanRows = fileData.rows.map(row => {
+                const cleanRow = { ...row };
+                delete cleanRow.__rowNum;
+                return cleanRow;
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(cleanRows, { header: fileData.headers });
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+            const outputFileName = `modified_${fileName}`;
+            XLSX.writeFile(workbook, outputFileName);
+            
+            logAction(`دانلود نسخه اصلاح‌شده فایل اکسل با نام جدید "${outputFileName}".`);
+        }
+
+        // ۹. استخراج و دانلود گام‌به‌گام تاریخچه سیستم در قالب فایل TXT (New Feature)
+        btnDownloadHistory.addEventListener('click', () => {
+            if (appState.changeHistory.length === 0) {
+                alert('هنوز هیچ عملیاتی برای استخراج در تاریخچه ثبت نشده است.');
+                return;
+            }
+
+            // ادغام سطرها همراه با کاراکتر رفتن به خط بعد (\r\n) برای نمایش عالی در ویندوز/لینوکس
+            const historyContent = "سوابق و گزارش گام‌به‌گام تغییرات سیستم مدیریت داده‌های اکسل\r\n" + 
+                                   "=================================================================\r\n\r\n" + 
+                                   appState.changeHistory.join("\r\n\r\n");
+
+            // تولید ساختار Blob متنی با انکودینگ هوشمند UTF-8 جهت خوانا بودن متون فارسی
+            const blob = new Blob([historyContent], { type: "text/plain;charset=utf-8;" });
+            
+            // ایجاد یک لینک مجازی موقت در حافظه DOM برای دانلود فایل متنی
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", `excel_operation_history_${new Date().toISOString().slice(0,10)}.txt`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    </script>
+</body>
+</html>
