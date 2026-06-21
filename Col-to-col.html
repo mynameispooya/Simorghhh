@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ویرایشگر سلولی و نقطه‌ای اکسل</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700&display=swap');
+        body { font-family: 'Vazirmatn', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <header class="bg-indigo-700 text-white shadow-md py-5 px-8 mb-6">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">ابزار همگام‌سازی و جایگزینی مشروط اکسل</h1>
+            <span class="text-xs bg-indigo-600 px-3 py-1 rounded-full text-indigo-100 font-mono">Version 2.0 (Targeted Sync)</span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 w-full flex-grow flex flex-col gap-6">
+        
+        <section class="bg-white p-5 rounded-xl shadow-xs border border-gray-100">
+            <h2 class="text-md font-bold mb-3 text-gray-700">۱. بارگذاری فایل اکسل</h2>
+            <div class="flex items-center justify-center w-full">
+                <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                    <div class="flex flex-col items-center justify-center pt-4 pb-4">
+                        <p class="mb-1 text-sm text-gray-500"><span class="font-bold">انتخاب فایل اکسل</span> یا کشیدن آن به این مکان</p>
+                        <p class="text-xs text-gray-400">XLSX, XLS</p>
+                    </div>
+                    <input id="excel-file" type="file" class="hidden" accept=".xlsx, .xls" />
+                </label>
+            </div>
+            <div id="file-info" class="mt-2 text-sm text-emerald-600 hidden font-medium"></div>
+        </section>
+
+        <section id="config-section" class="bg-white p-5 rounded-xl shadow-xs border border-gray-100 hidden">
+            <h2 class="text-md font-bold mb-4 text-gray-700">۲. تعریف دقیق قانون جایگزینی (قانون علّی)</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label class="block mb-1.5 text-xs font-bold text-gray-600">ستون هدف برای تغییر (ستون X):</label>
+                    <select id="col-x" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block mb-1.5 text-xs font-bold text-gray-600">ستون معیار/شرط (ستون Y):</label>
+                    <select id="col-y" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block mb-1.5 text-xs font-bold text-gray-600">اگر مقدار در ستون Y برابر بود با:</label>
+                    <select id="val-y-condition" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                        <option value="">-- ابتدا ستون Y را انتخاب کنید --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block mb-1.5 text-xs font-bold text-gray-600">آنگاه در ستون X مقدار جدید را بنویس:</label>
+                    <input type="text" id="val-x-new" placeholder="مثال: نمونه" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" />
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-100">
+                <button id="btn-process" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg text-sm transition shadow-xs cursor-pointer">
+                    اعمال دگرگونی شرطی
+                </button>
+                <button id="btn-export" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-6 rounded-lg text-sm transition shadow-xs cursor-pointer hidden">
+                    دانلود فایل اکسل اصلاح‌شده
+                </button>
+            </div>
+        </section>
+
+        <section id="preview-section" class="bg-white p-5 rounded-xl shadow-xs border border-gray-100 flex-grow hidden flex flex-col">
+            <h2 class="text-md font-bold mb-3 text-gray-700">پیش‌نمایش زنده داده‌ها</h2>
+            <div class="overflow-x-auto border border-gray-100 rounded-lg flex-grow max-h-[380px]">
+                <table class="w-full text-sm text-right text-gray-500">
+                    <thead id="table-head" class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0 z-10">
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-gray-150">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-100 text-center py-3 text-xs text-gray-400 border-t border-gray-200 mt-6">
+        سیستم پردازش متمرکز منطق شرطی داده‌های ساختاریافته.
+    </footer>
+
+    <script>
+        // هسته وضعیت برنامه
+        const AppState = {
+            rawData: [],
+            processedData: [],
+            headers: [],
+            fileName: ""
+        };
+
+        // الگوهای DOM
+        const fileInput = document.getElementById('excel-file');
+        const fileInfo = document.getElementById('file-info');
+        const configSection = document.getElementById('config-section');
+        const previewSection = document.getElementById('preview-section');
+        const colXSelect = document.getElementById('col-x');
+        const colYSelect = document.getElementById('col-y');
+        const valYSelect = document.getElementById('val-y-condition');
+        const valXInput = document.getElementById('val-x-new');
+        const btnProcess = document.getElementById('btn-process');
+        const btnExport = document.getElementById('btn-export');
+        const tableHead = document.getElementById('table-head');
+        const tableBody = document.getElementById('table-body');
+
+        // رویدادها
+        fileInput.addEventListener('change', handleFileUpload);
+        colYSelect.addEventListener('change', updateConditionValues);
+        btnProcess.addEventListener('click', executeTargetedSubstitution);
+        btnExport.addEventListener('click', exportExcel);
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            AppState.fileName = file.name;
+            fileInfo.textContent = `فایل با موفقیت بارگذاری شد: ${file.name}`;
+            fileInfo.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
+                
+                // لود مقادیر (حتی مقادیر تهی با مقدار پیشفرض رشته خالی پر می‌شوند)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                
+                if (jsonData.length === 0) {
+                    alert("شیت انتخابی فاقد داده قابل پردازش است.");
+                    return;
+                }
+
+                AppState.rawData = JSON.parse(JSON.stringify(jsonData));
+                AppState.processedData = JSON.parse(JSON.stringify(jsonData));
+                AppState.headers = Object.keys(jsonData[0]);
+
+                initDropdowns();
+                renderLiveTable(AppState.rawData);
+
+                configSection.classList.remove('hidden');
+                previewSection.classList.remove('hidden');
+                btnExport.classList.add('hidden');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function initDropdowns() {
+            colXSelect.innerHTML = '';
+            colYSelect.innerHTML = '';
+            
+            AppState.headers.forEach(header => {
+                const optX = new Option(header, header);
+                const optY = new Option(header, header);
+                colXSelect.add(optX);
+                colYSelect.add(optY);
+            });
+
+            // به صورت پیشفرض ستون دوم را انتخاب کن تا تجربه کاربری بهتری ارائه شود
+            if (AppState.headers.length > 1) {
+                colYSelect.selectedIndex = 1;
+            }
+            updateConditionValues();
+        }
+
+        // استخراج پویا و بدون تکرار مقادیر ستون Y برای منوی آبشاری شرط
+        function updateConditionValues() {
+            const selectedColY = colYSelect.value;
+            if (!selectedColY) return;
+
+            // استفاده از Set برای حذف سریع داده‌های تکراری ستون شرط
+            const uniqueValues = new Set();
+            AppState.rawData.forEach(row => {
+                if (row[selectedColY] !== undefined && row[selectedColY] !== "") {
+                    uniqueValues.add(String(row[selectedColY]).trim());
+                }
+            });
+
+            valYSelect.innerHTML = '<option value="">-- یک مقدار را انتخاب کنید --</option>';
+            uniqueValues.forEach(val => {
+                const opt = new Option(val, val);
+                valYSelect.add(opt);
+            });
+        }
+
+        // پیاده‌سازی زنده پیش‌نمایش دیتا
+        function renderLiveTable(data) {
+            tableHead.innerHTML = '<tr>';
+            AppState.headers.forEach(h => {
+                tableHead.innerHTML += `<th class="px-6 py-3 font-bold text-gray-700 bg-gray-100">${h}</th>`;
+            });
+            tableHead.innerHTML += '</tr>';
+
+            tableBody.innerHTML = '';
+            data.forEach(row => {
+                let rowHtml = '<tr class="bg-white hover:bg-gray-50 transition border-b border-gray-100">';
+                AppState.headers.forEach(h => {
+                    rowHtml += `<td class="px-6 py-3 text-gray-900 font-medium">${row[h] !== undefined ? row[h] : ''}</td>`;
+                });
+                rowHtml += '</tr>';
+                tableBody.innerHTML += rowHtml;
+            });
+        }
+
+        // الگوریتم اصلی جایگزینی نقطه‌ای بر اساس شرط کاربر
+        function executeTargetedSubstitution() {
+            const targetX = colXSelect.value;
+            const criterionY = colYSelect.value;
+            const conditionValY = valYSelect.value;
+            const newValX = valXInput.value;
+
+            if (!conditionValY) {
+                alert("لطفاً مشخص کنید که سیستم در ستون Y باید به دنبال چه مقداری بگردد.");
+                return;
+            }
+            if (newValX === "") {
+                alert("لطفاً مقدار جایگزین جدید را وارد کنید.");
+                return;
+            }
+
+            // نگاشت داده‌ها: پایداری مطلق کل ردیف‌ها و دگرگونی انحصاری سلول‌های واجد شرایط
+            AppState.processedData = AppState.rawData.map(row => {
+                const updatedRow = { ...row };
+                const currentYVal = String(updatedRow[criterionY]).trim();
+
+                // شرط علّی: اگر و تنها اگر مقدار ردیف فعلی در ستون معیار با شرط مطابقت داشت
+                if (currentYVal === conditionValY) {
+                    updatedRow[targetX] = newValX; // جایگزینی اتمیک
+                }
+                return updatedRow;
+            });
+
+            renderLiveTable(AppState.processedData);
+            btnExport.classList.remove('hidden');
+            alert("تغییرات نقطه‌ای با موفقیت بر روی پیش‌نمایش اعمال شد. اکنون می‌توانید فایل خروجی را استخراج کنید.");
+        }
+
+        function exportExcel() {
+            if (AppState.processedData.length === 0) return;
+
+            const worksheet = XLSX.utils.json_to_sheet(AppState.processedData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Data_Modified");
+
+            const finalName = `modified_${AppState.fileName || 'document.xlsx'}`;
+            XLSX.writeFile(workbook, finalName);
+        }
+    </script>
+</body>
+</html>
