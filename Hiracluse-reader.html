@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist EPUB Reader</title>
+    
+    <!-- EPUB.js requires JSZip to extract .epub files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    <!-- EPUB.js library for rendering and pagination -->
+    <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+
+    <style>
+        /* =========================================
+           CSS: Layout, Styling, and Responsive UI
+           ========================================= */
+        :root {
+            --toolbar-bg: #f1f1f1;
+            --viewer-bg: #ffffff;
+            --text-color: #333333;
+            --btn-bg: #ffffff;
+            --btn-hover: #e0e0e0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--toolbar-bg);
+            transition: background-color 0.3s ease;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Toolbar Styles */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 12px 20px;
+            background-color: var(--toolbar-bg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: background-color 0.3s ease;
+        }
+
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn, .btn-icon {
+            background-color: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid #ccc;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn:hover, .btn-icon:hover {
+            background-color: var(--btn-hover);
+        }
+
+        .select {
+            background-color: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid #ccc;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* Viewer Styles */
+        #viewer {
+            flex: 1;
+            position: relative;
+            background-color: var(--viewer-bg);
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Navigation Buttons (Floating over the book) */
+        .nav-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .nav-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background-color: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(0,0,0,0.8);
+        }
+
+        /* Placeholder before book is loaded */
+        .placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #888;
+            text-align: center;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- =========================================
+             HTML: Toolbar UI Elements
+             ========================================= -->
+        <header class="toolbar">
+            <div class="toolbar-section">
+                <!-- 1. EPUB Upload -->
+                <label class="btn">
+                    Upload EPUB
+                    <input type="file" id="epub-input" accept=".epub" hidden>
+                </label>
+            </div>
+
+            <div class="toolbar-section">
+                <!-- 3. Font Size Control -->
+                <button id="font-decrease" class="btn-icon" title="Decrease Font Size">A-</button>
+                <button id="font-increase" class="btn-icon" title="Increase Font Size">A+</button>
+            </div>
+
+            <div class="toolbar-section">
+                <!-- 4. Background Color Change -->
+                <select id="theme-select" class="select">
+                    <option value="light">White</option>
+                    <option value="sepia">Sepia</option>
+                    <option value="dark">Dark Mode</option>
+                </select>
+            </div>
+
+            <div class="toolbar-section">
+                <!-- 5. Custom Font Upload -->
+                <label class="btn">
+                    Upload Font
+                    <input type="file" id="font-input" accept=".ttf,.woff,.woff2" hidden>
+                </label>
+            </div>
+        </header>
+
+        <!-- EPUB Rendering Area -->
+        <div id="viewer">
+            <div class="placeholder">Please upload an EPUB file to begin reading.</div>
+            
+            <!-- Pagination Controls -->
+            <div class="nav-controls">
+                <button id="prev-page" class="nav-btn" title="Previous Page">&#10094;</button>
+                <button id="next-page" class="nav-btn" title="Next Page">&#10095;</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================
+        // JavaScript: EPUB Reader Logic
+        // =========================================
+
+        // Global variables to hold book state
+        let book = null;
+        let rendition = null;
+        let currentFontSize = 100; // Default font size percentage
+        let customFontFamily = null;
+        let customFontUrl = null;
+
+        // DOM Elements
+        const viewer = document.getElementById('viewer');
+        const epubInput = document.getElementById('epub-input');
+        const fontInput = document.getElementById('font-input');
+        const themeSelect = document.getElementById('theme-select');
+        const placeholder = document.querySelector('.placeholder');
+
+        // -----------------------------------------
+        // 1. EPUB Upload & Rendering
+        // -----------------------------------------
+        epubInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Remove placeholder
+            if (placeholder) placeholder.remove();
+
+            // If a book is already loaded, destroy it before loading the new one
+            if (rendition) {
+                rendition.destroy();
+            }
+
+            // Read the file as an ArrayBuffer to pass to ePub()
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                // Initialize the book
+                book = ePub(event.target.result);
+                
+                // Render the book in the #viewer div with pagination
+                rendition = book.renderTo(viewer, {
+                    width: '100%',
+                    height: '100%',
+                    spread: 'none' // Keeps it to a single column (mobile-friendly)
+                });
+
+                // Register built-in themes for background color changes
+                registerThemes();
+                
+                // Apply the currently selected theme from the dropdown
+                const selectedTheme = themeSelect.value;
+                rendition.themes.select(selectedTheme);
+                updateUITheme(selectedTheme);
+
+                // Apply default (or previously set) font size
+                rendition.themes.fontSize(currentFontSize + '%');
+
+                // Hook to inject custom font into new chapters as they load
+                rendition.hooks.content.register((contents) => {
+                    injectCustomFont(contents.document);
+                });
+
+                // Display the first page
+                rendition.display();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // -----------------------------------------
+        // 2. Pagination Controls
+        // -----------------------------------------
+        document.getElementById('next-page').addEventListener('click', () => {
+            if (rendition) rendition.next();
+        });
+
+        document.getElementById('prev-page').addEventListener('click', () => {
+            if (rendition) rendition.prev();
+        });
+
+        // Keyboard arrows for pagination
+        document.addEventListener('keyup', (e) => {
+            if (!rendition) return;
+            if (e.key === 'ArrowLeft') rendition.prev();
+            if (e.key === 'ArrowRight') rendition.next();
+        });
+
+        // -----------------------------------------
+        // 3. Font Size Control
+        // -----------------------------------------
+        document.getElementById('font-increase').addEventListener('click', () => {
+            currentFontSize += 10; // Increase by 10%
+            if (rendition) rendition.themes.fontSize(currentFontSize + '%');
+        });
+
+        document.getElementById('font-decrease').addEventListener('click', () => {
+            if (currentFontSize > 50) currentFontSize -= 10; // Prevent font from becoming too small
+            if (rendition) rendition.themes.fontSize(currentFontSize + '%');
+        });
+
+        // -----------------------------------------
+        // 4. Background Color Change (Themes)
+        // -----------------------------------------
+        function registerThemes() {
+            // epub.js allows registering CSS rules as themes.
+            // We target the 'body' of the rendered iframe.
+            rendition.themes.register('light', { 'body': { 'background': '#ffffff', 'color': '#333333' } });
+            rendition.themes.register('sepia', { 'body': { 'background': '#f4ecd8', 'color': '#5b4636' } });
+            rendition.themes.register('dark', { 'body': { 'background': '#121212', 'color': '#e0e0e0' } });
+        }
+
+        themeSelect.addEventListener('change', (e) => {
+            const theme = e.target.value;
+            if (rendition) {
+                rendition.themes.select(theme);
+            }
+            // Also update the host page UI (toolbar and viewer background outside the book)
+            updateUITheme(theme);
+        });
+
+        function updateUITheme(theme) {
+            const root = document.documentElement;
+            if (theme === 'dark') {
+                root.style.setProperty('--toolbar-bg', '#333333');
+                root.style.setProperty('--viewer-bg', '#121212');
+                root.style.setProperty('--text-color', '#e0e0e0');
+                root.style.setProperty('--btn-bg', '#444444');
+                root.style.setProperty('--btn-hover', '#555555');
+            } else if (theme === 'sepia') {
+                root.style.setProperty('--toolbar-bg', '#e8dcc4');
+                root.style.setProperty('--viewer-bg', '#f4ecd8');
+                root.style.setProperty('--text-color', '#5b4636');
+                root.style.setProperty('--btn-bg', '#f4ecd8');
+                root.style.setProperty('--btn-hover', '#e0d4bc');
+            } else {
+                root.style.setProperty('--toolbar-bg', '#f1f1f1');
+                root.style.setProperty('--viewer-bg', '#ffffff');
+                root.style.setProperty('--text-color', '#333333');
+                root.style.setProperty('--btn-bg', '#ffffff');
+                root.style.setProperty('--btn-hover', '#e0e0e0');
+            }
+        }
+
+        // -----------------------------------------
+        // 5. Custom Font Upload (FontFace API)
+        // -----------------------------------------
+        fontInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Revoke previous blob URL if it exists to free memory
+            if (customFontUrl) URL.revokeObjectURL(customFontUrl);
+
+            // Create a local URL for the uploaded font file
+            customFontUrl = URL.createObjectURL(file);
+            customFontFamily = 'CustomUserFont_' + Date.now(); // Unique name for the font family
+
+            // Use the FontFace API to load the font into the parent document
+            const fontFace = new FontFace(customFontFamily, `url(${customFontUrl})`);
+            fontFace.load().then((loadedFont) => {
+                // Add the loaded font to the document
+                document.fonts.add(loadedFont);
+
+                // If a book is already loaded, inject the font into the currently rendered iframe
+                if (rendition) {
+                    // epub.js getContents() returns an array of Contents objects (usually 1 for single column)
+                    rendition.getContents().forEach(content => {
+                        injectCustomFont(content.document);
+                    });
+                }
+            }).catch(err => {
+                console.error('Failed to load custom font:', err);
+                alert('Failed to load font. Please ensure it is a valid .ttf, .woff, or .woff2 file.');
+            });
+        });
+
+        // Helper function to inject CSS into the epub.js iframe
+        function injectCustomFont(doc) {
+            if (!customFontFamily || !customFontUrl) return;
+
+            // Create a <style> element to go inside the EPUB's iframe <head>
+            const style = doc.createElement('style');
+            style.innerHTML = `
+                @font-face {
+                    font-family: '${customFontFamily}';
+                    src: url('${customFontUrl}');
+                }
+                body, p, h1, h2, h3, h4, h5, h6, span, div {
+                    font-family: '${customFontFamily}', serif !important;
+                }
+            `;
+            doc.head.appendChild(style);
+        }
+    </script>
+</body>
+</html>
