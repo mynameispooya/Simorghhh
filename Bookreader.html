@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epub Vibe Reader</title>
+    <!-- معرفی کتابخانه epub.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f1ea; /* رنگ کاغذی دلنشین */
+            --text-color: #333;
+            --panel-bg: #ffffff;
+            --accent: #4a6fa5;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Tahoma', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        /* استایل‌های صفحه آپلود */
+        #upload-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .upload-box {
+            border: 2px dashed var(--accent);
+            border-radius: 20px;
+            padding: 60px 40px;
+            background: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .upload-box:hover { transform: scale(1.05); }
+        .upload-box h1 { margin-bottom: 10px; color: var(--accent); }
+        .upload-box p { color: #666; }
+
+        #file-input { display: none; }
+
+        /* استایل‌های صفحه خواندن */
+        #reader-screen {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* نوار ابزار بالا */
+        #toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: var(--panel-bg);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+
+        #toolbar button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 5px 10px;
+            border-radius: 8px;
+        }
+
+        #toolbar button:hover { background: #eee; }
+
+        #book-title {
+            font-size: 16px;
+            font-weight: bold;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* محیط نمایش کتاب (فیلتر نور روی این اعمال می‌شود) */
+        #book-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            transition: filter 0.4s ease;
+        }
+
+        /* نوار پایین برای ورق زدن */
+        #navigation {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 15px;
+            background: var(--panel-bg);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-btn {
+            padding: 10px 30px;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover { background: var(--accent); color: white; }
+
+        /* پنل تنظیمات (اسلاید از سمت راست) */
+        #settings-panel {
+            position: absolute;
+            top: 0;
+            right: -300px;
+            width: 300px;
+            height: 100%;
+            background: var(--panel-bg);
+            box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+            z-index: 200;
+            padding: 20px;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+        }
+
+        #settings-panel.open { right: 0; }
+
+        .setting-group {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .setting-group h3 { margin-bottom: 15px; font-size: 16px; }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .btn-control {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid #ccc;
+            background: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-control:hover { background: #f0f0f0; }
+
+        #font-size-display { font-size: 18px; font-weight: bold; width: 40px; text-align: center; }
+
+        /* اسلایدر نور */
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        .custom-font-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: #f0f4f8;
+            border: 1px dashed #aaa;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #555;
+        }
+
+        /* نوتیفیکیشن کپی */
+        #copy-toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #333;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 30px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        #copy-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* استایل‌های خاص epub.js */
+        .epub-container { display: flex !important; }
+    </style>
+</head>
+<body>
+
+    <!-- صفحه اول (آپلود فایل) -->
+    <div id="upload-screen">
+        <div class="upload-box" onclick="document.getElementById('file-input').click()">
+            <h1>📚 Epub Vibe Reader</h1>
+            <p>فایل EPUB خود را اینجا بکشید یا کلیک کنید</p>
+        </div>
+        <input type="file" id="file-input" accept=".epub">
+    </div>
+
+    <!-- صفحه خواندن کتاب -->
+    <div id="reader-screen">
+        <div id="toolbar">
+            <button onclick="toggleSettings()" title="تنظیمات">⚙️</button>
+            <span id="book-title">عنوان کتاب</span>
+            <button onclick="closeBook()" title="بستن کتاب">✖</button>
+        </div>
+
+        <div id="book-wrapper">
+            <div id="viewer" style="width: 100%; height: 100%;"></div>
+            
+            <!-- پنل تنظیمات -->
+            <div id="settings-panel">
+                <div class="setting-group">
+                    <h3>اندازه فونت</h3>
+                    <div class="control-row">
+                        <button class="btn-control" onclick="changeFontSize(-2)">−</button>
+                        <span id="font-size-display">18</span>
+                        <button class="btn-control" onclick="changeFontSize(2)">+</button>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <h3>فونت دلخواه</h3>
+                    <label class="custom-font-btn" for="font-upload">
+                        آپلود فونت (TTF / OTF)
+                    </label>
+                    <input type="file" id="font-upload" accept=".ttf, .otf" style="display: none;">
+                    <p id="font-name-display" style="margin-top: 10px; font-size: 13px; color: #666;"></p>
+                </div>
+
+                <div class="setting-group">
+                    <h3>محافظت از چشم (نور گرم)</h3>
+                    <input type="range" id="brightness-slider" min="50" max="100" value="100" oninput="adjustLight(this.value)">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-top: 5px;">
+                        <span>نور کم (زرد)</span>
+                        <span>نور طبیعی</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="navigation">
+            <button class="nav-btn" onclick="book.prev()">قبلی</button>
+            <button class="nav-btn" onclick="book.next()">بعدی</button>
+        </div>
+    </div>
+
+    <!-- پیام کپی شدن متن -->
+    <div id="copy-toast">✅ متن با موفقیت کپی شد!</div>
+
+    <script>
+        let book = null;
+        let rendition = null;
+        let currentFontSize = 18;
+
+        // هندلر آپلود فایل EPUB
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    initBook(e.target.result, file.name);
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        // راه‌اندازی کتاب
+        function initBook(arrayBuffer, fileName) {
+            document.getElementById('upload-screen').style.display = 'none';
+            document.getElementById('reader-screen').style.display = 'flex';
+            document.getElementById('book-title').innerText = fileName.replace('.epub', '');
+
+            // پاکسازی کتاب قبلی در صورت وجود
+            if(book) book.destroy();
+
+            book = ePub(arrayBuffer);
+            rendition = book.renderTo("viewer", {
+                width: "100%",
+                height: "100%",
+                spread: "none" // برای خواندن تک صفحه‌ای در موبایل و دسکتاپ بهتر است
+            });
+
+            // اعمال تنظیمات اولیه
+            rendition.themes.default({
+                'body': { 'padding': '20px !important' }
+            });
+            
+            changeFontSize(currentFontSize);
+            
+            rendition.display();
+        }
+
+        // تغییر اندازه فونت
+        function changeFontSize(delta) {
+            currentFontSize += delta;
+            if (currentFontSize < 10) currentFontSize = 10;
+            if (currentFontSize > 40) currentFontSize = 40;
+            
+            document.getElementById('font-size-display').innerText = currentFontSize;
+            
+            if (rendition) {
+                rendition.themes.fontSize(currentFontSize + "px");
+            }
+        }
+
+        // آپلود فونت سفارشی
+        document.getElementById('font-upload').addEventListener('change', function(e) {
+            const fontFile = e.target.files[0];
+            if (!fontFile || !rendition) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const fontData = e.target.result; // فرمت Base64
+                const fontName = "CustomUploadedFont";
+                
+                // تزریق فونت به سیستم
+                const newStyle = document.createElement('style');
+                newStyle.textContent = `
+                    @font-face {
+                        font-family: '${fontName}';
+                        src: url(${fontData}) format('truetype');
+                        font-weight: normal;
+                        font-style: normal;
+                    }
+                `;
+                document.head.appendChild(newStyle);
+
+                // اعمال فونت روی ایفریم کتاب توسط epub.js
+                rendition.themes.register("custom", { "body": { "font-family": `${fontName}, sans-serif !important` } });
+                rendition.themes.select("custom");
+                
+                document.getElementById('font-name-display').innerText = `فونت فعال: ${fontFile.name}`;
+            };
+            reader.readAsDataURL(fontFile);
+        });
+
+        // تنظیم نور و گرمی صفحه (بدون دستکاری مستقیم رنگ متن که باعث بهم ریختگی می‌شود)
+        function adjustLight(value) {
+            const wrapper = document.getElementById('book-wrapper');
+            // هرچه مقدار کمتر باشد، تاریک‌تر و زردتر می‌شود
+            const brightness = value / 100;
+            // محاسبه میزان زردی (سپیا) بر اساس تاریکی
+            const sepia = (100 - value) / 150; 
+            
+            wrapper.style.filter = `brightness(${brightness}) sepia(${sepia})`;
+        }
+
+        // باز و بسته کردن پنل تنظیمات
+        function toggleSettings() {
+            document.getElementById('settings-panel').classList.toggle('open');
+        }
+
+        // بستن کتاب و بازگشت به صفحه اول
+        function closeBook() {
+            if(book) {
+                book.destroy();
+                book = null;
+                rendition = null;
+            }
+            document.getElementById('reader-screen').style.display = 'none';
+            document.getElementById('upload-screen').style.display = 'flex';
+            document.getElementById('file-input').value = '';
+            
+            // ریست کردن تنظیمات
+            document.getElementById('brightness-slider').value = 100;
+            adjustLight(100);
+            currentFontSize = 18;
+            document.getElementById('font-size-display').innerText = '18';
+            document.getElementById('font-name-display').innerText = '';
+        }
+
+        // تشخیص کپی کردن متن (Event Listener برای کلاینت)
+        document.addEventListener('copy', function(e) {
+            // بررسی اینکه آیا کاربر واقعاً چیزی انتخاب کرده است یا خیر
+            const selection = window.getSelection();
+            if (selection.toString().trim().length > 0) {
+                showToast();
+            }
+        });
+
+        // نشان دادن نوتیفیکیشن کپی
+        function showToast() {
+            const toast = document.getElementById('copy-toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // بستن پنل با کلیک خارج از آن
+        document.getElementById('book-wrapper').addEventListener('click', function(e) {
+            if (e.target === this) {
+                document.getElementById('settings-panel').classList.remove('open');
+            }
+        });
+    </script>
+</body>
+</html>
