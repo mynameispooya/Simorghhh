@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPUB Reader Pro</title>
+    <!-- لود کردن کتابخانه اصلی EPUB.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.93/epub.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --ui-bg: #f1f1f1;
+            --ui-text: #000;
+            --accent: #007bff;
+        }
+
+        /* تم‌های رنگی */
+        .theme-light { --bg-color: #ffffff; --text-color: #222222; }
+        .theme-dark { --bg-color: #1a1a1a; --text-color: #e0e0e0; --ui-bg: #2c2c2c; --ui-text: #fff; }
+        .theme-sepia { --bg-color: #f4ecd8; --text-color: #5b4636; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Tahoma, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* هدر و کنترل‌ها */
+        header {
+            background-color: var(--ui-bg);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .controls-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        input[type="file"] { display: none; }
+
+        /* ناحیه نمایش کتاب */
+        #viewer {
+            flex: 1;
+            position: relative;
+            background-color: var(--bg-color);
+        }
+
+        /* استایل‌های داخلی برای محتوای کتاب (تزریق شده به iframe) */
+        /* نکته: این استایل‌ها از طریق JS به کتاب اعمال می‌شوند */
+    </style>
+</head>
+<body class="theme-light">
+
+    <header>
+        <div class="controls-group">
+            <label for="book-input">
+                <button onclick="document.getElementById('book-input').click()">بارگذاری کتاب</button>
+            </label>
+            <input type="file" id="book-input" accept=".epub">
+            
+            <!-- کنترل فونت -->
+            <button onclick="changeFontSize(1)">فونت +</button>
+            <button onclick="changeFontSize(-1)">فونت -</button>
+            <label for="font-input">
+                <button onclick="document.getElementById('font-input').click()" style="background-color: #6c757d;">فونت دلخواه</button>
+            </label>
+            <input type="file" id="font-input" accept=".ttf, .otf">
+        </div>
+
+        <div class="controls-group">
+            <!-- کنترل نور/تم -->
+            <button onclick="setTheme('light')" style="background:#fff; color:#000; border:1px solid #ccc;">روز</button>
+            <button onclick="setTheme('sepia')" style="background:#f4ecd8; color:#5b4636; border:1px solid #ccc;">کلاسیک</button>
+            <button onclick="setTheme('dark')" style="background:#333; color:#fff;">شب</button>
+        </div>
+    </header>
+
+    <div id="viewer"></div>
+
+    <!-- دکمه‌های ناوبری -->
+    <div style="position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; pointer-events: none;">
+        <button id="prev" style="pointer-events: auto; font-size: 20px;">◂ قبلی</button>
+        <button id="next" style="pointer-events: auto; font-size: 20px;">بعدی ▸</button>
+    </div>
+
+    <script>
+        let book = null;
+        let rendition = null;
+        let currentFontSize = 100;
+        let customFontName = null;
+
+        // عناصر DOM
+        const bookInput = document.getElementById('book-input');
+        const fontInput = document.getElementById('font-input');
+        const viewer = document.getElementById('viewer');
+        const prevBtn = document.getElementById('prev');
+        const nextBtn = document.getElementById('next');
+
+        // 1. بارگذاری کتاب
+        bookInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (book) book.destroy(); // پاک کردن کتاب قبلی
+                
+                // خواندن فایل به صورت ArrayBuffer برای EPUB.js
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    book = ePub(evt.target.result);
+                    displayBook();
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        function displayBook() {
+            // رندر کردن کتاب در عنصر 'viewer'
+            rendition = book.renderTo("viewer", {
+                width: "100%",
+                height: "100%",
+                spread: "always" // نمایش دو صفحه در دسکتاپ
+            });
+
+            rendition.display();
+            
+            // اعمال تنظیمات فعلی (فونت و تم)
+            applyCustomStyles();
+
+            // مدیریت ناوبری
+            prevBtn.addEventListener('click', () => rendition.prev());
+            nextBtn.addEventListener('click', () => rendition.next());
+
+            // فعال کردن منوی سیستمی برای کپی متن (Context Menu)
+            // به طور پیش‌فرض کتابخانه‌های epub ممکنه کلیک راست رو غیرفعال کنن، ما فعالش می‌کنیم
+            rendition.on('rendered', (section) => {
+                const iframe = document.querySelector('iframe');
+                if (iframe) {
+                    iframe.style.pointerEvents = 'auto'; // اطمینان از امکان انتخاب متن
+                }
+            });
+        }
+
+        // 2. تغییر اندازه فونت
+        function changeFontSize(direction) {
+            currentFontSize += direction * 10;
+            if (currentFontSize < 50) currentFontSize = 50; // حداقل اندازه
+            applyCustomStyles();
+        }
+
+        // 3. آپلود و اعمال فونت دلخواه
+        fontInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // ساخت URL موقت برای فایل فونت
+                const fontUrl = URL.createObjectURL(file);
+                const fontName = 'CustomUserFont';
+                
+                // تزریق فونت به صفحه اصلی
+                let styleTag = document.getElementById('dynamic-font-style');
+                if (!styleTag) {
+                    styleTag = document.createElement('style');
+                    styleTag.id = 'dynamic-font-style';
+                    document.head.appendChild(styleTag);
+                }
+                
+                // استفاده از @font-face
+                styleTag.textContent = `
+                    @font-face {
+                        font-family: '${fontName}';
+                        src: url('${fontUrl}') format('truetype'); /* یا opentype */
+                    }
+                `;
+                
+                customFontName = fontName;
+                applyCustomStyles();
+            }
+        });
+
+        // 4. تنظیم نور و تم
+        function setTheme(themeName) {
+            document.body.className = `theme-${themeName}`;
+            applyCustomStyles();
+        }
+
+        // تابع مرکزی اعمال استایل‌ها روی کتاب
+        function applyCustomStyles() {
+            if (!rendition) return;
+
+            // تعیین رنگ متن بر اساس تم فعلی
+            const bodyStyles = window.getComputedStyle(document.body);
+            const textColor = bodyStyles.getPropertyValue('--text-color');
+            const bgColor = bodyStyles.getPropertyValue('--bg-color');
+
+            // ساخت CSS برای تزریق داخل iframe کتاب
+            let cssRules = `
+                body { 
+                    font-size: ${currentFontSize}% !important; 
+                    transition: all 0.2s;
+                }
+                p, div, span { 
+                    color: ${textColor} !important; 
+                }
+                /* فعال کردن انتخاب متن */
+                * { 
+                    user-select: text !important; 
+                }
+            `;
+
+            // اگر فونت دلخواه آپلود شده باشد
+            if (customFontName) {
+                cssRules += ` body { font-family: '${customFontName}', sans-serif !important; } `;
+            }
+
+            // تزریق استایل‌ها به تمام بخش‌های کتاب
+            rendition.themes.default({
+                'body': {
+                    'color': textColor,
+                    'background': bgColor
+                }
+            });
+            
+            // متد override برای اعمال CSS خام
+            rendition.themes.override('color', textColor);
+            rendition.themes.override('background', bgColor);
+            
+            // تزریق CSS سفارشی
+            rendition.themes.registerCss("custom", cssRules);
+            rendition.themes.select("custom");
+        }
+    </script>
+</body>
+</html>
