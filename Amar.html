@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحلیلگر گیت تردد</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@200;400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0b0e18;
+            --bg2: #101525;
+            --card: #151c30;
+            --card-hover: #1b2442;
+            --accent: #e07a5f;
+            --accent-dim: rgba(224,122,95,0.15);
+            --accent-glow: rgba(224,122,95,0.25);
+            --fg: #eae6df;
+            --fg2: #c8c3bb;
+            --muted: #5e6480;
+            --border: #232c4a;
+            --success: #34d399;
+            --danger: #f87171;
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden}
+
+        /* پس‌زمینه متحرک */
+        .bg-blob{position:fixed;border-radius:50%;filter:blur(140px);opacity:.12;pointer-events:none;z-index:0}
+        .blob-1{width:650px;height:650px;background:var(--accent);top:-250px;right:-180px;animation:bFloat 22s ease-in-out infinite}
+        .blob-2{width:450px;height:450px;background:#5f8ae0;bottom:-150px;left:-120px;animation:bFloat 28s ease-in-out infinite reverse}
+        .blob-3{width:300px;height:300px;background:#a35fe0;top:50%;left:50%;transform:translate(-50%,-50%);animation:bFloat 18s ease-in-out infinite 5s}
+        @keyframes bFloat{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,-40px) scale(1.12)}66%{transform:translate(-40px,60px) scale(.9)}}
+
+        /* نوار پیشرفت بالای صفحه */
+        .top-bar{position:fixed;top:0;left:0;right:0;height:3px;z-index:300;background:var(--border);overflow:hidden}
+        .top-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#f4a583);width:0;transition:width .6s cubic-bezier(.4,0,.2,1)}
+
+        /* زون آپلود */
+        .upload-zone{border:2px dashed var(--border);border-radius:20px;padding:70px 40px;text-align:center;cursor:pointer;transition:all .35s ease;position:relative;overflow:hidden;background:var(--bg2)}
+        .upload-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,var(--accent-glow),transparent 70%);opacity:0;transition:opacity .35s}
+        .upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 16px 50px rgba(0,0,0,.35)}
+        .upload-zone:hover::before,.upload-zone.drag-over::before{opacity:1}
+        .upload-zone.drag-over{box-shadow:0 16px 50px rgba(0,0,0,.35),0 0 60px var(--accent-glow)}
+        .upload-icon{animation:iconPulse 2.5s ease-in-out infinite}
+        @keyframes iconPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.08);opacity:1}}
+
+        /* کارت آمار */
+        .stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 18px;text-align:center;transition:all .3s ease;position:relative;overflow:hidden}
+        .stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);transform:scaleX(0);transition:transform .4s ease;transform-origin:center}
+        .stat-card:hover{border-color:rgba(224,122,95,.3);transform:translateY(-2px)}
+        .stat-card:hover::after{transform:scaleX(1)}
+
+        /* کارت گیت */
+        .gate-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;cursor:pointer;transition:all .35s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;opacity:0;animation:cardIn .5s ease forwards}
+        .gate-card::before{content:'';position:absolute;top:0;right:0;width:100px;height:100px;background:radial-gradient(circle,var(--accent-dim),transparent 70%);opacity:0;transition:opacity .3s}
+        .gate-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),#f4a583);transform:scaleX(0);transition:transform .35s ease;transform-origin:right}
+        .gate-card:hover{background:var(--card-hover);border-color:var(--accent);transform:translateY(-5px);box-shadow:0 16px 50px rgba(0,0,0,.45),0 0 30px var(--accent-glow)}
+        .gate-card:hover::before{opacity:1}
+        .gate-card:hover::after{transform:scaleX(1)}
+        .gate-card:active{transform:translateY(-2px)}
+        @keyframes cardIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+        /* مودال */
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s ease;padding:16px}
+        .modal-overlay.active{opacity:1;pointer-events:all}
+        .modal-content{background:var(--card);border:1px solid var(--border);border-radius:20px;width:100%;max-width:860px;max-height:85vh;overflow:hidden;transform:translateY(40px) scale(.96);transition:transform .35s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+        .modal-overlay.active .modal-content{transform:translateY(0) scale(1)}
+
+        /* جدول */
+        .data-table{width:100%;border-collapse:separate;border-spacing:0}
+        .data-table thead th{background:rgba(224,122,95,.08);padding:14px 18px;text-align:right;font-weight:700;font-size:13px;color:var(--accent);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;white-space:nowrap}
+        .data-table tbody tr{transition:background .2s;opacity:0;animation:rowIn .35s ease forwards}
+        .data-table tbody tr:hover{background:rgba(224,122,95,.04)}
+        .data-table tbody td{padding:13px 18px;border-bottom:1px solid rgba(35,44,74,.6);font-size:14px}
+        @keyframes rowIn{to{opacity:1}}
+
+        /* تست */
+        .toast-wrap{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+        .toast{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 22px;display:flex;align-items:center;gap:12px;font-size:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:tIn .4s ease,tOut .4s ease 2.8s forwards;pointer-events:all;backdrop-filter:blur(12px)}
+        @keyframes tIn{from{transform:translateY(-24px);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes tOut{from{opacity:1}to{transform:translateY(-24px);opacity:0}}
+
+        /* اسپینر */
+        .spinner{width:52px;height:52px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        /* دکمه‌ها */
+        .btn-accent{background:var(--accent);color:#fff;border:none;padding:10px 22px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;display:inline-flex;align-items:center;gap:8px}
+        .btn-accent:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
+        .btn-accent:active{transform:translateY(0)}
+        .btn-ghost{background:var(--card);color:var(--muted);border:1px solid var(--border);padding:10px 22px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .25s;display:inline-flex;align-items:center;gap:8px}
+        .btn-ghost:hover{border-color:var(--accent);color:var(--fg);transform:translateY(-1px)}
+
+        /* اینپوت جستجو */
+        .search-input{width:100%;padding:12px 16px 12px 44px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--fg);font-family:inherit;font-size:14px;outline:none;transition:all .25s}
+        .search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+        .search-input::placeholder{color:var(--muted)}
+
+        /* اسکرولبار */
+        ::-webkit-scrollbar{width:5px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+        ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+        /* خالی بودن جدول */
+        .empty-state{text-align:center;padding:50px 20px;color:var(--muted)}
+
+        /* ریسپانسیو */
+        @media(max-width:640px){
+            .upload-zone{padding:40px 20px}
+            .modal-content{max-height:92vh;border-radius:16px}
+            .data-table thead th,.data-table tbody td{padding:10px 12px;font-size:13px}
+        }
+
+        /* حرکت کم */
+        @media(prefers-reduced-motion:reduce){
+            *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+        }
+    </style>
+</head>
+<body>
+    <!-- بلاب‌های پس‌زمینه -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <!-- نوار پیشرفت -->
+    <div class="top-bar"><div class="top-bar-fill" id="topBarFill"></div></div>
+
+    <!-- تست‌ها -->
+    <div class="toast-wrap" id="toastWrap"></div>
+
+    <!-- محتوای اصلی -->
+    <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-10">
+
+        <!-- هدر -->
+        <header class="text-center mb-14">
+            <div class="inline-flex items-center gap-4 mb-5">
+                <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:linear-gradient(135deg,var(--accent),#c45a3f);box-shadow:0 6px 24px var(--accent-glow)">
+                    <i class="fas fa-door-open text-white text-2xl"></i>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-black tracking-tight">تحلیلگر گیت تردد</h1>
+            </div>
+            <p class="text-base max-w-xl mx-auto" style="color:var(--muted)">
+                فایل اکسل گزارش تردد را آپلود کنید تا پرسنل بر اساس آخرین گیت‌های ورود شناسایی و دسته‌بندی شوند
+            </p>
+        </header>
+
+        <!-- بخش آپلود -->
+        <section id="uploadSection" class="max-w-2xl mx-auto mb-14">
+            <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="آپلود فایل اکسل تردد">
+                <input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden" aria-hidden="true">
+                <div class="relative z-10">
+                    <div class="upload-icon inline-block mb-5">
+                        <i class="fas fa-cloud-upload-alt text-6xl" style="color:var(--accent)"></i>
+                    </div>
+                    <p class="text-lg font-bold mb-2">فایل اکسل را اینجا بکشید و رها کنید</p>
+                    <p class="text-sm mb-5" style="color:var(--muted)">یا کلیک کنید تا فایل را از سیستم انتخاب کنید</p>
+                    <span class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold" style="background:var(--accent-dim);color:var(--accent)">
+                        <i class="fas fa-file-excel"></i>
+                        فرمت‌های پشتیبانی: .xlsx و .xls
+                    </span>
+                </div>
+            </div>
+            <!-- راهنما -->
+            <div class="mt-6 p-4 rounded-xl text-sm leading-7" style="background:var(--bg2);border:1px solid var(--border);color:var(--fg2)">
+                <p class="font-bold mb-1" style="color:var(--accent)"><i class="fas fa-info-circle ml-1"></i> نحوه کارکرد:</p>
+                <p>برای هر پرسنل، ۳ مورد آخر گیت <strong>ورود</strong> استخراج شده و گیتی که بیشترین تکرار را داشته باشد، به عنوان گیت اختصاصی آن شخص تعیین می‌شود.</p>
+            </div>
+        </section>
+
+        <!-- لودینگ -->
+        <section id="loadingSection" class="hidden text-center py-24">
+            <div class="spinner mx-auto mb-5"></div>
+            <p class="font-semibold" style="color:var(--muted)">در حال تحلیل فایل تردد...</p>
+        </section>
+
+        <!-- نتایج -->
+        <section id="resultsSection" class="hidden">
+            <!-- آمار -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" id="statsGrid"></div>
+
+            <!-- دکمه‌های بالایی -->
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+                <h2 class="text-xl font-black flex items-center gap-2">
+                    <i class="fas fa-th-large" style="color:var(--accent)"></i>
+                    گیت‌های شناسایی شده
+                </h2>
+                <button id="exportAllBtn" class="btn-ghost text-sm">
+                    <i class="fas fa-download"></i>
+                    خروجی کل پرسنل
+                </button>
+            </div>
+
+            <!-- کارت‌های گیت -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-12" id="gatesGrid"></div>
+
+            <!-- ریست -->
+            <div class="text-center">
+                <button id="resetBtn" class="btn-ghost">
+                    <i class="fas fa-redo-alt"></i>
+                    آپلود فایل جدید
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- مودال -->
+    <div class="modal-overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-content">
+            <!-- هدر مودال -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6" style="border-bottom:1px solid var(--border)">
+                <div class="min-w-0">
+                    <h3 class="text-lg font-black truncate" id="modalTitle"></h3>
+                    <p class="text-sm mt-1" style="color:var(--muted)" id="modalSubtitle"></p>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <button id="exportBtn" class="btn-accent text-sm">
+                        <i class="fas fa-file-excel"></i>
+                        خروجی اکسل
+                    </button>
+                    <button id="closeModalBtn" class="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:opacity-80" style="background:var(--card-hover);border:1px solid var(--border)" aria-label="بستن">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- جستجو -->
+            <div class="px-6 pt-5">
+                <div class="relative">
+                    <i class="fas fa-search absolute right-4 top-1/2 -translate-y-1/2 text-sm" style="color:var(--muted)"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="جستجو بر اساس نام یا کد پرسنلی..." aria-label="جستجو">
+                </div>
+            </div>
+            <!-- جدول -->
+            <div class="overflow-auto flex-1 p-6 pt-4" id="tableWrap">
+                <table class="data-table" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th class="rounded-tr-lg" style="width:60px">ردیف</th>
+                            <th>نام و نام خانوادگی</th>
+                            <th class="rounded-tl-lg" style="width:130px">کد پرسنلی</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    /* ============================
+       حالت کلی برنامه
+    ============================ */
+    const state = {
+        gateData: {},      // { نام_گیت: [{name, code}, ...] }
+        allPeople: [],     // [{name, code, gate}, ...]
+        currentGate: null   // گیت فعلی در مودال
+    };
+
+    /* ============================
+       عناصر DOM
+    ============================ */
+    const $ = id => document.getElementById(id);
+    const uploadZone   = $('uploadZone');
+    const fileInput     = $('fileInput');
+    const uploadSection = $('uploadSection');
+    const loadingSection= $('loadingSection');
+    const resultsSection= $('resultsSection');
+    const statsGrid     = $('statsGrid');
+    const gatesGrid     = $('gatesGrid');
+    const modalOverlay  = $('modalOverlay');
+    const modalTitle    = $('modalTitle');
+    const modalSubtitle = $('modalSubtitle');
+    const tableBody     = $('tableBody');
+    const searchInput   = $('searchInput');
+    const exportBtn     = $('exportBtn');
+    const exportAllBtn  = $('exportAllBtn');
+    const closeModalBtn = $('closeModalBtn');
+    const resetBtn      = $('resetBtn');
+    const toastWrap     = $('toastWrap');
+    const topBarFill    = $('topBarFill');
+
+    /* ============================
+       رویدادهای آپلود
+    ============================ */
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+    uploadZone.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+        if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+    /* ============================
+       پردازش فایل
+    ============================ */
+    function processFile(file) {
+        if (!/\.xlsx?$/i.test(file.name)) {
+            toast('لطفاً فایل با فرمت .xlsx یا .xls آپلود کنید.', 'error');
+            return;
+        }
+        showView('loading');
+        animateBar(30);
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                animateBar(60);
+                const data = new Uint8Array(e.target.result);
+                const result = parseExcel(data);
+                animateBar(90);
+
+                if (Object.keys(result).length === 0) {
+                    toast('هیچ داده معتبری یافت نشد. لطفاً ساختار فایل را بررسی کنید.', 'error');
+                    showView('upload');
+                    animateBar(0);
+                    return;
+                }
+
+                // ذخیره در state
+                state.gateData = result;
+                state.allPeople = [];
+                for (const gate in result) {
+                    for (const p of result[gate]) {
+                        state.allPeople.push({ name: p.name, code: p.code, gate });
+                    }
+                }
+
+                renderResults();
+                animateBar(100);
+                setTimeout(() => { animateBar(0); }, 600);
+                showView('results');
+                toast(`${state.allPeople.length} نفر در ${Object.keys(result).length} گیت شناسایی شدند.`, 'success');
+            } catch (err) {
+                console.error(err);
+                toast('خطا در پردازش: ' + err.message, 'error');
+                showView('upload');
+                animateBar(0);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    /* ============================
+       پارس کردن اکسل
+    ============================ */
+    function parseExcel(data) {
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        let nameCol = -1, codeCol = -1, entryGateCol = -1, headerRowIdx = -1;
+
+        // یافتن ردیف هدر و ستون‌های کلیدی
+        for (let i = 0; i < Math.min(rows.length, 20); i++) {
+            const row = rows[i] || [];
+            for (let j = 0; j < row.length; j++) {
+                const c = clean(row[j]);
+                if (c.includes('نام و نام خانوادگی')) { nameCol = j; if (headerRowIdx < 0) headerRowIdx = i; }
+                if (c.includes('کدپرسنلی') || c.includes('کد پرسنلی')) { codeCol = j; if (headerRowIdx < 0) headerRowIdx = i; }
+            }
+        }
+        if (nameCol < 0 || codeCol < 0 || headerRowIdx < 0) throw new Error('ستون‌های "نام و نام خانوادگی" یا "کدپرسنلی" یافت نشدند.');
+
+        // یافتن ستون‌های گیت در ردیف زیرین
+        const subRow = rows[headerRowIdx + 1] || [];
+        const gateCols = [];
+        for (let j = 0; j < subRow.length; j++) {
+            if (clean(subRow[j]) === 'گیت') gateCols.push(j);
+        }
+
+        // اولین «گیت» = خروج، دومی = ورود
+        if (gateCols.length >= 2) { entryGateCol = gateCols[1]; }
+        else if (gateCols.length === 1) { entryGateCol = gateCols[0]; }
+        else throw new Error('ستون‌های «گیت» در زیرهدر یافت نشدند.');
+
+        // پردازش ردیف‌های داده
+        const people = {};
+        let curName = '', curCode = '';
+        const startRow = headerRowIdx + 2;
+
+        for (let i = startRow; i < rows.length; i++) {
+            const row = rows[i] || [];
+            // نادیده گرفتن ردیف جمع
+            if (clean(row[0]).replace(/\s/g, '').includes('مجموع')) continue;
+
+            // جلوپر کردن نام و کد (سلول‌های ادغام‌شده)
+            const nv = clean(row[nameCol]);
+            const cv = clean(row[codeCol]);
+            if (nv && nv !== '*') curName = nv;
+            if (cv && cv !== '*') curCode = normDigits(cv);
+            if (!curName || !curCode) continue;
+
+            if (!people[curCode]) people[curCode] = { name: curName, code: curCode, gates: [] };
+
+            // استخراج گیت ورود
+            if (entryGateCol >= 0 && row.length > entryGateCol) {
+                const g = clean(row[entryGateCol]);
+                if (g && g !== '*') people[curCode].gates.push(g);
+            }
+        }
+
+        // تعیین گیت نهایی هر نفر
+        const result = {};
+        for (const code in people) {
+            const p = people[code];
+            const last3 = p.gates.slice(-3);
+            const gate = pickGate(last3);
+            if (!result[gate]) result[gate] = [];
+            result[gate].push({ name: p.name, code: p.code });
+        }
+        return result;
+    }
+
+    /* ============================
+       توابع کمکی پارس
+    ============================ */
+    // پاکسازی رشته از کاراکترهای نامرئی و فاصله‌های اضافی
+    function clean(v) {
+        return String(v || '').replace(/[\u200c\u200d\u200e\u200f\ufeff]/g, '').trim();
+    }
+
+    // نرمال‌سازی ارقام فارسی/عربی به لاتین
+    function normDigits(s) {
+        const pd = '۰۱۲۳۴۵۶۷۸۹', ad = '٠١٢٣٤٥٦٧٨٩';
+        let r = s;
+        for (let i = 0; i < 10; i++) { r = r.replace(new RegExp(pd[i], 'g'), i).replace(new RegExp(ad[i], 'g'), i); }
+        return r;
+    }
+
+    // تعیین گیت از ۳ مورد آخر (ماژوریت، در صورت تساوی → آخرین)
+    function pickGate(arr) {
+        if (!arr.length) return 'نامشخص';
+        if (arr.length === 1) return arr[0];
+        const cnt = {};
+        for (const g of arr) cnt[g] = (cnt[g] || 0) + 1;
+        let best = '', max = 0;
+        for (const g in cnt) { if (cnt[g] > max) { max = cnt[g]; best = g; } }
+        return max > 1 ? best : arr[arr.length - 1];
+    }
+
+    /* ============================
+       رندر نتایج
+    ============================ */
+    function renderResults() {
+        const { gateData, allPeople } = state;
+        const gates = Object.keys(gateData);
+        const total = allPeople.length;
+        const counts = gates.map(g => gateData[g].length);
+        const maxC = Math.max(...counts);
+        const minC = Math.min(...counts);
+
+        // کارت‌های آمار
+        statsGrid.innerHTML = [
+            statHTML(total, 'تعداد کل پرسنل', 'fa-users'),
+            statHTML(gates.length, 'تعداد گیت‌ها', 'fa-door-open'),
+            statHTML(maxC, 'بیشترین تراکم', 'fa-arrow-up'),
+            statHTML(minC, 'کمترین تراکم', 'fa-arrow-down')
+        ].join('');
+
+        // کارت‌های گیت
+        gatesGrid.innerHTML = '';
+        gates.forEach((gate, idx) => {
+            const c = gateData[gate].length;
+            const pct = (c / total * 100).toFixed(1);
+            const card = document.createElement('div');
+            card.className = 'gate-card';
+            card.style.animationDelay = `${idx * 0.06}s`;
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-label', `${gate} — ${c} نفر`);
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:var(--accent-dim)">
+                        <i class="fas fa-door-open text-base" style="color:var(--accent)"></i>
+                    </div>
+                    <span class="text-xs font-bold px-3 py-1 rounded-full" style="background:var(--accent-dim);color:var(--accent)">${c} نفر</span>
+                </div>
+                <h3 class="font-extrabold text-[15px] leading-7 mb-3">${gate}</h3>
+                <div class="h-1.5 rounded-full overflow-hidden" style="background:var(--border)">
+                    <div class="h-full rounded-full" style="background:var(--accent);width:${pct}%;transition:width .8s ease ${idx * 0.06 + 0.3}s"></div>
+                </div>
+                <p class="text-xs mt-2" style="color:var(--muted)">${pct}% از کل پرسنل</p>
+            `;
+            card.addEventListener('click', () => openModal(gate));
+            card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(gate); } });
+            gatesGrid.appendChild(card);
+        });
+    }
+
+    function statHTML(val, label, icon) {
+        return `<div class="stat-card">
+            <i class="fas ${icon} text-sm mb-2 block" style="color:var(--accent);opacity:.6"></i>
+            <div class="text-3xl font-black" style="color:var(--accent)">${val}</div>
+            <div class="text-xs mt-1" style="color:var(--muted)">${label}</div>
+        </div>`;
+    }
+
+    /* ============================
+       مودال
+    ============================ */
+    function openModal(gate) {
+        state.currentGate = gate;
+        const people = state.gateData[gate] || [];
+        modalTitle.textContent = gate;
+        modalSubtitle.textContent = `${people.length} نفر در این گیت`;
+        searchInput.value = '';
+        fillTable(people);
+        modalOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => searchInput.focus(), 350);
+    }
+
+    function closeModal() {
+        modalOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+        state.currentGate = null;
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modalOverlay.classList.contains('active')) closeModal(); });
+
+    /* ============================
+       جدول
+    ============================ */
+    function fillTable(people) {
+        tableBody.innerHTML = '';
+        if (!people.length) {
+            tableBody.innerHTML = `<tr style="opacity:1"><td colspan="3" class="empty-state">
+                <i class="fas fa-search text-4xl mb-3 block" style="opacity:.25"></i>
+                <p>نتیجه‌ای یافت نشد</p></td></tr>`;
+            return;
+        }
+        people.forEach((p, i) => {
+            const tr = document.createElement('tr');
+            tr.style.animationDelay = `${i * 0.025}s`;
+            tr.innerHTML = `
+                <td class="text-center font-mono text-sm" style="color:var(--muted)">${i + 1}</td>
+                <td class="font-semibold">${p.name}</td>
+                <td class="text-center font-mono text-sm font-bold" style="color:var(--accent)">${p.code}</td>`;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    // جستجو
+    searchInput.addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase();
+        const people = state.gateData[state.currentGate] || [];
+        if (!q) { fillTable(people); return; }
+        fillTable(people.filter(p => p.name.toLowerCase().includes(q) || p.code.includes(q)));
+    });
+
+    /* ============================
+       خروجی اکسل
+    ============================ */
+    exportBtn.addEventListener('click', () => {
+        const people = state.gateData[state.currentGate] || [];
+        const gate = state.currentGate;
+        downloadExcel(
+            [['ردیف', 'نام و نام خانوادگی', 'کد پرسنلی', 'گیت'],
+             ...people.map((p, i) => [i + 1, p.name, p.code, gate])],
+            `گیت_${gate}`
+        );
+        toast('فایل اکسل دانلود شد.', 'success');
+    });
+
+    exportAllBtn.addEventListener('click', () => {
+        const rows = [['ردیف', 'نام و نام خانوادگی', 'کد پرسنلی', 'گیت']];
+        state.allPeople.forEach((p, i) => rows.push([i + 1, p.name, p.code, p.gate]));
+        downloadExcel(rows, 'گزارش_کلی_گیت‌ها');
+        toast('فایل اکسل کلی دانلود شد.', 'success');
+    });
+
+    function downloadExcel(aoa, fileName) {
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws['!cols'] = [{ wch: 8 }, { wch: 35 }, { wch: 15 }, { wch: 35 }];
+        // تنظیم جهت RTL برای شیت
+        if (!ws['!sheetViews']) ws['!sheetViews'] = [{}];
+        ws['!sheetViews'][0].rightToLeft = true;
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, fileName.substring(0, 31));
+        XLSX.writeFile(wb, fileName + '.xlsx');
+    }
+
+    /* ============================
+       ریست
+    ============================ */
+    resetBtn.addEventListener('click', () => {
+        state.gateData = {};
+        state.allPeople = [];
+        state.currentGate = null;
+        resultsSection.classList.add('hidden');
+        uploadSection.classList.remove('hidden');
+        fileInput.value = '';
+    });
+
+    /* ============================
+       توابع رابط کاربری
+    ============================ */
+    function showView(v) {
+        uploadSection.classList.toggle('hidden', v !== 'upload');
+        loadingSection.classList.toggle('hidden', v !== 'loading');
+        resultsSection.classList.toggle('hidden', v !== 'results');
+    }
+
+    function animateBar(pct) {
+        topBarFill.style.width = pct + '%';
+    }
+
+    function toast(msg, type = 'info') {
+        const icons = { success: 'fa-check-circle', error: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+        const colors = { success: 'var(--success)', error: 'var(--danger)', info: 'var(--accent)' };
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.innerHTML = `<i class="fas ${icons[type]}" style="color:${colors[type]};font-size:18px"></i><span>${msg}</span>`;
+        toastWrap.appendChild(el);
+        setTimeout(() => el.remove(), 3300);
+    }
+    </script>
+</body>
+</html>
