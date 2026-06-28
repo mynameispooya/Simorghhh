@@ -3,452 +3,674 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت دیتابیس اکسل</title>
-    <!-- وارد کردن کتابخانه SheetJS برای کار با فایل‌های اکسل -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <title>مدیریت پایگاه داده اکسل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@200;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --success: #16a34a;
-            --success-hover: #15803d;
-            --danger: #dc2626;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --border: #e2e8f0;
+            --bg: #0a0e14;
+            --fg: #e2e8f0;
+            --muted: #5a6578;
+            --accent: #10b981;
+            --accent-h: #059669;
+            --card: #12171f;
+            --card-h: #181f2a;
+            --border: #1c2433;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --surface: #0f1319;
         }
-        body {
-            font-family: 'Tahoma', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-            line-height: 1.6;
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 700px 500px at 15% 5%,rgba(16,185,129,.07),transparent),radial-gradient(ellipse 500px 600px at 85% 90%,rgba(245,158,11,.04),transparent);pointer-events:none;z-index:0}
+        .noise{position:fixed;inset:0;opacity:.02;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none;z-index:0}
+        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+        /* آپلود */
+        .upload-zone{border:2px dashed var(--border);border-radius:16px;padding:52px 24px;text-align:center;cursor:pointer;transition:all .35s ease;position:relative;overflow:hidden}
+        .upload-zone::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(16,185,129,.04),transparent 60%);opacity:0;transition:opacity .35s}
+        .upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:rgba(16,185,129,.02)}
+        .upload-zone:hover::after,.upload-zone.over::after{opacity:1}
+        .upload-zone.compact{padding:18px 24px;display:flex;align-items:center;gap:14px;text-align:right}
+
+        /* نتایج */
+        .r-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;transition:all .22s ease;opacity:0;animation:cardIn .35s ease forwards}
+        .r-card:hover{background:var(--card-h);border-color:rgba(16,185,129,.28);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.35)}
+        @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.35}}
+        @keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+
+        /* مودال */
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+        .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px 28px 24px;max-width:540px;width:92%;max-height:88vh;overflow-y:auto;animation:slideDown .3s ease}
+
+        /* پیل فایل */
+        .fpill{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:100px;padding:5px 12px 5px 8px;font-size:12.5px;transition:all .2s;cursor:default}
+        .fpill.mod{border-color:var(--warn);box-shadow:0 0 14px rgba(245,158,11,.12)}
+        .fpill .dot{width:6px;height:6px;border-radius:50%;background:var(--warn);display:none;animation:pulseDot 1.4s infinite}
+        .fpill.mod .dot{display:block}
+
+        /* بج */
+        .b{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:100px;font-size:10.5px;font-weight:600;white-space:nowrap}
+        .b-f{background:rgba(16,185,129,.09);color:var(--accent);border:1px solid rgba(16,185,129,.14)}
+        .b-s{background:rgba(139,92,246,.09);color:#a78bfa;border:1px solid rgba(139,92,246,.14)}
+        .b-c{background:rgba(245,158,11,.09);color:var(--warn);border:1px solid rgba(245,158,11,.14)}
+        .b-m{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.18)}
+
+        /* دکمه‌ها */
+        .btn{border:none;border-radius:8px;padding:7px 16px;font-family:'Vazirmatn',sans-serif;font-weight:600;cursor:pointer;transition:all .2s;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+        .btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent-h);box-shadow:0 4px 16px rgba(16,185,129,.28)}
+        .btn-o{background:transparent;color:var(--fg);border:1px solid var(--border);font-weight:400}.btn-o:hover{border-color:var(--muted);background:rgba(255,255,255,.02)}
+        .btn-t{background:rgba(16,185,129,.08);color:var(--accent);border:1px solid rgba(16,185,129,.16);font-size:12.5px;padding:5px 13px}.btn-t:hover{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.35);box-shadow:0 2px 10px rgba(16,185,129,.12)}
+        .btn-d{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.16);font-size:12.5px;padding:5px 13px}.btn-d:hover{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.35)}
+        .btn-r{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:3px 5px;transition:color .15s}.btn-r:hover{color:var(--danger)}
+
+        /* اینپوت */
+        .si{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 46px 14px 18px;color:var(--fg);font-family:'Vazirmatn',sans-serif;font-size:15px;width:100%;transition:all .3s;outline:none}
+        .si:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(16,185,129,.1)}
+        .si::placeholder{color:var(--muted)}
+        .sel{appearance:none;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 34px 10px 14px;color:var(--fg);font-family:'Vazirmatn',sans-serif;font-size:13px;width:100%;outline:none;transition:border .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6578' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left 10px center}
+        .sel:focus{border-color:var(--accent)}
+
+        /* تست */
+        .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(110px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-size:13.5px;z-index:200;transition:transform .45s cubic-bezier(.16,1,.3,1);box-shadow:0 10px 35px rgba(0,0,0,.45);display:flex;align-items:center;gap:9px}
+        .toast.show{transform:translateX(-50%) translateY(0)}
+
+        /* کارت تغییر یافته */
+        .m-card{background:var(--card);border:1px solid rgba(245,158,11,.18);border-radius:12px;padding:16px 20px;transition:all .2s}
+        .m-card:hover{border-color:rgba(245,158,11,.38);box-shadow:0 4px 20px rgba(245,158,11,.06)}
+
+        /* خط بالای هدر */
+        .top-line{height:2px;background:linear-gradient(90deg,transparent,var(--accent),var(--warn),var(--accent),transparent);opacity:.5}
+
+        /* استیت خالی */
+        .empty{text-align:center;padding:50px 20px;color:var(--muted)}
+        .empty i{font-size:44px;margin-bottom:14px;opacity:.25;display:block}
+
+        /* آمار */
+        .stat-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;flex:1;min-width:100px}
+        .stat-num{font-size:24px;font-weight:900;color:var(--accent);line-height:1.1}
+        .stat-label{font-size:11px;color:var(--muted);margin-top:4px}
+
+        @media(max-width:640px){
+            .r-card{padding:12px 14px}
+            .modal-box{padding:20px 18px}
+            .stat-box{min-width:80px;padding:10px 8px}
+            .stat-num{font-size:18px}
         }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        h1 {
-            text-align: center;
-            color: var(--primary);
-            margin-bottom: 30px;
-        }
-        .card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-        }
-        .card-title {
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-bottom: 15px;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 10px;
-            color: var(--text);
-        }
-        input[type="text"], input[type="file"], select {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0 15px 0;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-family: inherit;
-            font-size: 14px;
-            direction: rtl;
-        }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: bold;
-            font-size: 14px;
-            transition: background 0.2s;
-        }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-success { background: var(--success); color: white; }
-        .btn-success:hover { background: var(--success-hover); }
-        .btn-disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: right;
-            border-bottom: 1px solid var(--border);
-        }
-        th {
-            background-color: #f1f5f9;
-            font-weight: bold;
-        }
-        tr:hover { background-color: #f8fafc; }
-        
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        .result-item {
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .result-item:hover {
-            background-color: #e0e7ff;
-        }
-        .download-list {
-            list-style: none;
-            padding: 0;
-        }
-        .download-list li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid var(--border);
-        }
-        .badge {
-            background-color: #dcfce7;
-            color: #166534;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-right: 10px;
-        }
-        .hidden { display: none; }
+
+        /* ترتیب انیمیشن کارت‌ها */
+        .r-card:nth-child(1){animation-delay:0s}
+        .r-card:nth-child(2){animation-delay:.04s}
+        .r-card:nth-child(3){animation-delay:.08s}
+        .r-card:nth-child(4){animation-delay:.12s}
+        .r-card:nth-child(5){animation-delay:.16s}
+        .r-card:nth-child(6){animation-delay:.2s}
+        .r-card:nth-child(7){animation-delay:.24s}
+        .r-card:nth-child(8){animation-delay:.28s}
+        .r-card:nth-child(9){animation-delay:.32s}
+        .r-card:nth-child(10){animation-delay:.36s}
     </style>
 </head>
 <body>
+<div class="noise"></div>
+<div class="top-line"></div>
 
-<div class="container">
-    <h1>📊 سیستم جستجو و انتقال داده‌های اکسل</h1>
+<!-- تست -->
+<div id="toast" class="toast">
+    <i id="tIcon" class="fas fa-check-circle" style="color:var(--accent)"></i>
+    <span id="tMsg"></span>
+</div>
 
-    <!-- بخش آپلود فایل -->
-    <div class="card">
-        <div class="card-title">📁 بارگذاری فایل‌های اکسل (دیتابیس)</div>
-        <input type="file" id="fileInput" multiple accept=".xlsx, .xls">
-        <div id="fileListStatus" style="color: #16a34a; font-size: 14px;"></div>
-    </div>
-
-    <!-- بخش جستجو -->
-    <div class="card" id="searchSection" style="display: none;">
-        <div class="card-title">🔍 جستجوی پرسنل</div>
-        <input type="text" id="searchInput" placeholder="نام شخص را وارد کنید (مثلاً: حامد شری زاده)">
-        <button class="btn-primary" onclick="searchData()">جستجو</button>
-        
-        <div id="searchResults" style="margin-top: 20px;"></div>
-    </div>
-
-    <!-- بخش انتقال -->
-    <div class="card hidden" id="transferSection">
-        <div class="card-title">🔄 انتقال داده</div>
-        <div class="grid-2">
-            <div>
-                <label><strong>مبدأ (محل فعلی):</strong></label>
-                <select id="sourceSelect" class="source-dest-select"></select>
+<!-- هدر -->
+<header style="position:relative;z-index:1;border-bottom:1px solid var(--border);background:rgba(10,14,20,.85);backdrop-filter:blur(14px)">
+    <div style="max-width:1120px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#047857);border-radius:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(16,185,129,.25)">
+                <i class="fas fa-database" style="color:#fff;font-size:16px"></i>
             </div>
             <div>
-                <label><strong>مقصد (محل جدید):</strong></label>
-                <select id="destFileSelect" class="source-dest-select" onchange="updateDestColumns()">
-                    <option value="">-- ابتدا فایل مقصد را انتخاب کنید --</option>
-                </select>
-                <select id="destColSelect" class="source-dest-select" disabled>
-                    <option value="">-- ستون مقصد --</option>
-                </select>
+                <h1 style="font-size:17px;font-weight:800;line-height:1.2">مدیریت پایگاه داده اکسل</h1>
+                <p style="font-size:10.5px;color:var(--muted)">جستجو ، انتقال و خروجی داده‌ها</p>
             </div>
         </div>
-        <button class="btn-success" onclick="transferData()" style="margin-top: 15px; width: 100%;">✅ انجام انتقال</button>
+        <div style="display:flex;align-items:center;gap:16px">
+            <div id="statsBar" style="display:none;gap:10px;flex-wrap:wrap">
+                <div class="stat-box"><div class="stat-num" id="sFiles">0</div><div class="stat-label">فایل</div></div>
+                <div class="stat-box"><div class="stat-num" id="sRows">0</div><div class="stat-label">ردیف</div></div>
+                <div class="stat-box"><div class="stat-num" id="sCols">0</div><div class="stat-label">ستون</div></div>
+            </div>
+        </div>
     </div>
+</header>
 
-    <!-- بخش دانلود -->
-    <div class="card hidden" id="downloadSection">
-        <div class="card-title">📥 دانلود فایل‌های تغییر یافته</div>
-        <p style="font-size: 14px; color: #64748b;">فقط فایل‌هایی که تغییر کرده‌اند قابل دانلود هستند.</p>
-        <ul class="download-list" id="downloadList"></ul>
+<!-- محتوا -->
+<main style="position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:26px 24px 60px">
+
+    <!-- آپلود -->
+    <section id="secUpload">
+        <div class="upload-zone" id="upZone">
+            <input type="file" id="fInput" multiple accept=".xlsx,.xls" style="display:none">
+            <div id="upBig" style="transition:all .3s">
+                <div style="margin-bottom:14px"><i class="fas fa-cloud-upload-alt" style="font-size:44px;color:var(--accent);opacity:.5"></i></div>
+                <p style="font-size:16px;font-weight:700;margin-bottom:5px">فایل‌های اکسل خود را اینجا رها کنید</p>
+                <p style="font-size:13px;color:var(--muted)">یا کلیک کنید برای انتخاب فایل &nbsp;<span style="opacity:.6">(xlsx , xls)</span></p>
+                <p style="font-size:11px;color:var(--muted);margin-top:12px;opacity:.6">امکان بارگذاری چندین فایل به صورت همزمان</p>
+            </div>
+            <div id="upSmall" style="display:none;align-items:center;gap:12px;width:100%">
+                <i class="fas fa-cloud-upload-alt" style="font-size:18px;color:var(--accent);opacity:.6"></i>
+                <span style="font-size:13px;color:var(--muted)">برای افزودن فایل جدید کلیک کنید یا فایل را رها کنید</span>
+                <span style="margin-right:auto;font-size:11px;color:var(--muted);opacity:.5">drag & drop</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- فایل‌ها -->
+    <section id="secFiles" style="margin-top:18px;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h2 style="font-size:13px;font-weight:600;color:var(--muted)"><i class="fas fa-folder-open" style="margin-left:5px"></i>فایل‌های بارگذاری شده</h2>
+        </div>
+        <div id="pills" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </section>
+
+    <!-- جستجو -->
+    <section id="secSearch" style="margin-top:26px;display:none">
+        <div style="position:relative">
+            <input type="text" id="sInput" class="si" placeholder="جستجوی نام شخص...  (Ctrl+K)" autocomplete="off">
+            <i class="fas fa-search" style="position:absolute;right:17px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px"></i>
+            <button id="sClear" onclick="clearS()" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;display:none;padding:4px"><i class="fas fa-times-circle"></i></button>
+        </div>
+        <div id="rInfo" style="margin-top:11px;font-size:12.5px;color:var(--muted);display:none"><span id="rCount"></span></div>
+        <div id="rList" style="margin-top:12px;display:flex;flex-direction:column;gap:9px"></div>
+        <div id="rEmpty" class="empty" style="display:none"><i class="fas fa-search"></i><p style="font-size:14px;font-weight:600">نتیجه‌ای یافت نشد</p><p style="font-size:12.5px;margin-top:4px">عبارت دیگری را جستجو کنید</p></div>
+    </section>
+
+    <!-- فایل‌های تغییر یافته -->
+    <section id="secMod" style="margin-top:36px;display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="width:4px;height:20px;background:var(--warn);border-radius:2px"></div>
+            <h2 style="font-size:15px;font-weight:800">فایل‌های تغییر یافته</h2>
+            <span class="b b-m" id="modCnt">0</span>
+        </div>
+        <div id="modList" style="display:flex;flex-direction:column;gap:10px"></div>
+        <div style="margin-top:14px">
+            <button class="btn btn-d" onclick="dlAll()" style="padding:9px 18px;font-size:13.5px"><i class="fas fa-download"></i>دانلود همه فایل‌های تغییر یافته</button>
+        </div>
+    </section>
+</main>
+
+<!-- مودال انتقال -->
+<div id="tModal" class="modal-bg" style="display:none">
+    <div class="modal-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+            <h3 style="font-size:16px;font-weight:800"><i class="fas fa-exchange-alt" style="margin-left:7px;color:var(--accent)"></i>انتقال داده</h3>
+            <button onclick="closeM()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;padding:4px"><i class="fas fa-times"></i></button>
+        </div>
+
+        <!-- مبدا -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:14px">
+            <p style="font-size:10.5px;color:var(--muted);margin-bottom:7px;font-weight:700;letter-spacing:.3px">مبدا</p>
+            <div id="srcInfo"></div>
+        </div>
+
+        <!-- فلش -->
+        <div style="text-align:center;margin:-4px 0;position:relative;z-index:1">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--surface);border:1px solid var(--border);border-radius:50%">
+                <i class="fas fa-arrow-down" style="color:var(--accent);font-size:13px"></i>
+            </div>
+        </div>
+
+        <!-- مقصد -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-top:-2px;margin-bottom:18px">
+            <p style="font-size:10.5px;color:var(--muted);margin-bottom:11px;font-weight:700;letter-spacing:.3px">مقصد</p>
+            <div style="margin-bottom:11px">
+                <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px">فایل</label>
+                <select id="dFile" class="sel" onchange="onDF()"></select>
+            </div>
+            <div style="margin-bottom:11px">
+                <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px">شیت</label>
+                <select id="dSheet" class="sel" onchange="onDS()"></select>
+            </div>
+            <div>
+                <label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px">ستون</label>
+                <select id="dCol" class="sel" onchange="onDC()"></select>
+            </div>
+        </div>
+
+        <!-- پیش‌نمایش -->
+        <div id="tPrev" style="border-radius:10px;padding:13px 15px;margin-bottom:18px;font-size:12.5px;display:none">
+            <p style="font-size:10.5px;margin-bottom:6px;font-weight:700"><i class="fas fa-eye" style="margin-left:4px"></i>پیش‌نمایش تغییرات</p>
+            <div id="tPrevC"></div>
+        </div>
+
+        <!-- دکمه‌ها -->
+        <div style="display:flex;gap:9px">
+            <button class="btn btn-p" id="cfmBtn" onclick="doTransfer()"><i class="fas fa-check"></i>تایید انتقال</button>
+            <button class="btn btn-o" onclick="closeM()">انصراف</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // دیتابیس اصلی: فرمت { "نام فایل.xlsx": [ [ردیف1], [ردیف2] ] }
-    let database = {};
-    // نگه داشتن نام فایل‌های ویرایش شده
-    let modifiedFiles = new Set();
-    // مقدار جستجو شده فعلی
-    let currentSearchValue = "";
+/* ========== وضعیت ========== */
+const DB = {};          // نام فایل → { sheets, modified, changes }
+let curResults = [];     // نتایج جستجوی فعلی
+let curTrans = null;     // آیتم منتخب برای انتقال
 
-    // وقتی فایل‌ها انتخاب می‌شوند
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-        const files = e.target.files;
-        let loadedCount = 0;
-        
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
-                // فرض می‌کنیم داده‌ها در اولین شیت هستند
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                // تبدیل به آرایه دوبعدی (AOA)
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                
-                database[file.name] = jsonData;
-                modifiedFiles.delete(file.name); // ریست وضعیت تغییرات در صورت آپلود مجدد
-                
-                loadedCount++;
-                if(loadedCount === files.length) {
-                    updateUI();
-                    document.getElementById('fileListStatus').innerText = `${loadedCount} فایل با موفقیت در حافظه بارگذاری شد.`;
-                }
-            };
-            reader.readAsArrayBuffer(file);
+/* ========== المان‌ها ========== */
+const upZone = document.getElementById('upZone');
+const fInput = document.getElementById('fInput');
+const sInput = document.getElementById('sInput');
+const sClear = document.getElementById('sClear');
+const rList  = document.getElementById('rList');
+const rInfo  = document.getElementById('rInfo');
+const rEmpty = document.getElementById('rEmpty');
+const tModal = document.getElementById('tModal');
+
+/* ========== آپلود ========== */
+upZone.addEventListener('click', () => fInput.click());
+upZone.addEventListener('dragover', e => { e.preventDefault(); upZone.classList.add('over'); });
+upZone.addEventListener('dragleave', () => upZone.classList.remove('over'));
+upZone.addEventListener('drop', e => { e.preventDefault(); upZone.classList.remove('over'); loadFiles(e.dataTransfer.files); });
+fInput.addEventListener('change', e => { loadFiles(e.target.files); fInput.value = ''; });
+
+function loadFiles(files) {
+    let done = 0;
+    const total = files.length;
+    Array.from(files).forEach(f => {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+                const db = { sheets: {}, modified: false, changes: [] };
+                wb.SheetNames.forEach(sn => {
+                    const raw = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: '' });
+                    if (raw.length > 0) {
+                        db.sheets[sn] = {
+                            headers: raw[0].map(h => String(h).trim()),
+                            data: raw.slice(1).map(r => r.map(c => c === undefined || c === null ? '' : c))
+                        };
+                    }
+                });
+                DB[f.name] = db;
+            } catch (err) {
+                toast('خطا در خواندن ' + f.name, 'error');
+                console.error(err);
+            }
+            done++;
+            if (done === total) {
+                refreshUI();
+                if (done === 1) toast('فایل با موفقیت بارگذاری شد', 'ok');
+                else toast(total + ' فایل با موفقیت بارگذاری شد', 'ok');
+            }
+        };
+        reader.readAsArrayBuffer(f);
+    });
+}
+
+/* ========== رفرش رابط ========== */
+function refreshUI() {
+    const names = Object.keys(DB);
+    const hasFiles = names.length > 0;
+
+    // تغییر حالت آپلود
+    document.getElementById('upBig').style.display = hasFiles ? 'none' : 'block';
+    document.getElementById('upSmall').style.display = hasFiles ? 'flex' : 'none';
+    upZone.classList.toggle('compact', hasFiles);
+
+    // نمایش بخش‌ها
+    document.getElementById('secFiles').style.display  = hasFiles ? 'block' : 'none';
+    document.getElementById('secSearch').style.display  = hasFiles ? 'block' : 'none';
+    document.getElementById('statsBar').style.display   = hasFiles ? 'flex'  : 'none';
+
+    // آمار
+    let totalRows = 0, totalCols = 0;
+    const colSet = new Set();
+    names.forEach(n => {
+        Object.values(DB[n].sheets).forEach(s => {
+            totalRows += s.data.length;
+            s.headers.forEach((h, i) => { if (h !== 'HEAD') colSet.add(n + ':' + h); });
         });
     });
+    document.getElementById('sFiles').textContent = names.length;
+    document.getElementById('sRows').textContent  = totalRows;
+    document.getElementById('sCols').textContent  = colSet.size;
 
-    function updateUI() {
-        const searchSection = document.getElementById('searchSection');
-        const downloadSection = document.getElementById('downloadSection');
-        
-        if(Object.keys(database).length > 0) {
-            searchSection.style.display = 'block';
-        } else {
-            searchSection.style.display = 'none';
-        }
+    // پیل‌ها
+    renderPills();
+    // فایل‌های تغییر یافته
+    renderMod();
+    // جستجوی مجدد
+    if (sInput.value.trim()) doSearch(sInput.value.trim());
+}
 
-        // آپدیت لیست دانلود
-        if(modifiedFiles.size > 0) {
-            downloadSection.classList.remove('hidden');
-            const list = document.getElementById('downloadList');
-            list.innerHTML = '';
-            
-            Object.keys(database).forEach(fileName => {
-                const li = document.createElement('li');
-                const isModified = modifiedFiles.has(fileName);
-                li.innerHTML = `
-                    <span>
-                        ${fileName} 
-                        ${isModified ? '<span class="badge">تغییر یافته</span>' : ''}
-                    </span>
-                    <button class="${isModified ? 'btn-success' : 'btn-disabled'}" 
-                            onclick="downloadFile('${fileName}')" 
-                            ${!isModified ? 'disabled' : ''}>
-                        دانلود
-                    </button>
-                `;
-                list.appendChild(li);
-            });
-        } else {
-            downloadSection.classList.add('hidden');
-        }
-    }
+function renderPills() {
+    const el = document.getElementById('pills');
+    el.innerHTML = '';
+    Object.keys(DB).forEach(n => {
+        const d = DB[n];
+        const p = document.createElement('div');
+        p.className = 'fpill' + (d.modified ? ' mod' : '');
+        p.innerHTML = `<span class="dot"></span><i class="fas fa-file-excel" style="color:${d.modified ? 'var(--warn)' : 'var(--accent)'};font-size:12px"></i><span>${n}</span><button class="btn-r" onclick="rmFile('${esc(n)}')" title="حذف"><i class="fas fa-times"></i></button>`;
+        el.appendChild(p);
+    });
+}
 
-    // تابع جستجو
-    function searchData() {
-        const query = document.getElementById('searchInput').value.trim();
-        if(!query) return;
-        
-        currentSearchValue = query;
-        let results = [];
-        const resultsDiv = document.getElementById('searchResults');
-        resultsDiv.innerHTML = '';
-        
-        // جستجو در تمام فایل‌ها
-        for (const fileName in database) {
-            const sheetData = database[fileName];
-            if(sheetData.length < 2) continue; // حداقل هدر و یک ردیف
-            
-            const headers = sheetData[0];
-            
-            // بررسی همه ستون‌ها
-            headers.forEach((header, colIndex) => {
-                for(let rowIndex = 1; rowIndex < sheetData.length; rowIndex++) {
-                    const cellValue = String(sheetData[rowIndex][colIndex]).trim();
-                    if(cellValue === query) {
-                        results.push({
-                            file: fileName,
-                            column: header,
-                            colIndex: colIndex,
-                            value: query
-                        });
-                        break; // یک اسم در یک ستون تکرار نشده فرض می‌کنیم
+function rmFile(n) {
+    delete DB[n];
+    refreshUI();
+    toast(n + ' حذف شد', 'info');
+}
+
+/* ========== جستجو ========== */
+let sTimer;
+sInput.addEventListener('input', e => {
+    const q = e.target.value.trim();
+    sClear.style.display = q ? 'block' : 'none';
+    clearTimeout(sTimer);
+    sTimer = setTimeout(() => {
+        if (q) doSearch(q); else { rList.innerHTML = ''; rInfo.style.display = 'none'; rEmpty.style.display = 'none'; }
+    }, 180);
+});
+
+function clearS() {
+    sInput.value = '';
+    sClear.style.display = 'none';
+    rList.innerHTML = '';
+    rInfo.style.display = 'none';
+    rEmpty.style.display = 'none';
+    sInput.focus();
+}
+
+// میانبر Ctrl+K
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); sInput.focus(); sInput.select(); }
+    if (e.key === 'Escape' && tModal.style.display === 'flex') closeM();
+});
+
+function doSearch(q) {
+    const lq = q.toLowerCase();
+    const res = [];
+    Object.keys(DB).forEach(fn => {
+        const db = DB[fn];
+        Object.keys(db.sheets).forEach(sn => {
+            const sh = db.sheets[sn];
+            sh.data.forEach((row, ri) => {
+                row.forEach((cell, ci) => {
+                    const cs = String(cell).trim();
+                    if (cs && cs.toLowerCase().includes(lq)) {
+                        res.push({ fileName: fn, sheetName: sn, colName: sh.headers[ci] || ('ستون ' + (ci + 1)), colIndex: ci, rowIndex: ri, value: cs, mod: db.modified });
                     }
-                }
+                });
             });
-        }
-        
-        if(results.length === 0) {
-            resultsDiv.innerHTML = '<p style="color: #dc2626;">❌ هیچ موردی یافت نشد.</p>';
-            document.getElementById('transferSection').classList.add('hidden');
+        });
+    });
+    curResults = res;
+    rList.innerHTML = '';
+
+    if (!res.length) { rInfo.style.display = 'none'; rEmpty.style.display = 'block'; return; }
+    rEmpty.style.display = 'none';
+    rInfo.style.display = 'block';
+    document.getElementById('rCount').innerHTML = '<i class="fas fa-list" style="margin-left:4px"></i>' + res.length + ' نتیجه یافت شد';
+
+    res.forEach((r, i) => {
+        const c = document.createElement('div');
+        c.className = 'r-card';
+        c.style.animationDelay = Math.min(i * 0.035, 0.35) + 's';
+        const hl = hlText(r.value, q);
+        c.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                <div style="flex:1;min-width:180px">
+                    <div style="font-size:15.5px;font-weight:700;margin-bottom:9px;direction:ltr;text-align:right">${hl}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                        <span class="b b-f"><i class="fas fa-file-excel" style="font-size:9px"></i>${r.fileName}</span>
+                        <span class="b b-s"><i class="fas fa-table" style="font-size:9px"></i>${r.sheetName}</span>
+                        <span class="b b-c"><i class="fas fa-columns" style="font-size:9px"></i>${r.colName}</span>
+                        <span style="font-size:10.5px;color:var(--muted)">ردیف ${r.rowIndex + 1}</span>
+                    </div>
+                </div>
+                <button class="btn btn-t" onclick="openM(${i})"><i class="fas fa-exchange-alt" style="font-size:11px"></i>انتقال</button>
+            </div>`;
+        rList.appendChild(c);
+    });
+}
+
+function hlText(t, q) {
+    if (!q) return t;
+    const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return t.replace(re, '<mark style="background:rgba(16,185,129,.22);color:var(--accent);padding:0 2px;border-radius:3px">$1</mark>');
+}
+
+/* ========== مودال انتقال ========== */
+function openM(idx) {
+    curTrans = curResults[idx];
+    if (!curTrans) return;
+
+    document.getElementById('srcInfo').innerHTML = `
+        <div style="font-weight:700;font-size:15px;margin-bottom:7px">${curTrans.value}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+            <span class="b b-f">${curTrans.fileName}</span>
+            <span class="b b-s">${curTrans.sheetName}</span>
+            <span class="b b-c">${curTrans.colName}</span>
+            <span style="font-size:10.5px;color:var(--muted)">ردیف ${curTrans.rowIndex + 1}</span>
+        </div>`;
+
+    fillDestFiles();
+    tModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    document.getElementById('tPrev').style.display = 'none';
+}
+
+function closeM() { tModal.style.display = 'none'; document.body.style.overflow = ''; curTrans = null; }
+tModal.addEventListener('click', e => { if (e.target === tModal) closeM(); });
+
+function fillDestFiles() {
+    const s = document.getElementById('dFile');
+    s.innerHTML = '';
+    Object.keys(DB).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); });
+    onDF();
+}
+
+function onDF() {
+    const fn = document.getElementById('dFile').value;
+    const db = DB[fn];
+    const s = document.getElementById('dSheet');
+    s.innerHTML = '';
+    Object.keys(db.sheets).forEach(sn => { const o = document.createElement('option'); o.value = sn; o.textContent = sn; s.appendChild(o); });
+    onDS();
+}
+
+function onDS() {
+    const fn = document.getElementById('dFile').value;
+    const sn = document.getElementById('dSheet').value;
+    const sh = DB[fn].sheets[sn];
+    const s = document.getElementById('dCol');
+    s.innerHTML = '';
+    sh.headers.forEach((h, i) => {
+        if (h === 'HEAD') return; // ستون شمارنده خودکار نادیده گرفته شود
+        const o = document.createElement('option'); o.value = i; o.textContent = h; s.appendChild(o);
+    });
+    onDC();
+}
+
+function onDC() { updPrev(); }
+
+function updPrev() {
+    if (!curTrans) return;
+    const dfn = document.getElementById('dFile').value;
+    const dsn = document.getElementById('dSheet').value;
+    const dci = parseInt(document.getElementById('dCol').value);
+    if (isNaN(dci)) return;
+
+    const dsh = DB[dfn].sheets[dsn];
+    const dcn = dsh.headers[dci];
+
+    // یافتن اولین سلول خالی در ستون مقصد
+    let tr = -1;
+    for (let i = 0; i < dsh.data.length; i++) {
+        if (!dsh.data[i][dci] || String(dsh.data[i][dci]).trim() === '') { tr = i; break; }
+    }
+    if (tr === -1) tr = dsh.data.length;
+
+    // بررسی تکراری بودن مبدا و مقصد
+    const same = curTrans.fileName === dfn && curTrans.sheetName === dsn && curTrans.colIndex === dci;
+    const prev = document.getElementById('tPrev');
+    const pc = document.getElementById('tPrevC');
+    const btn = document.getElementById('cfmBtn');
+
+    if (same) {
+        prev.style.display = 'block';
+        prev.style.background = 'rgba(239,68,68,.05)';
+        prev.style.border = '1px solid rgba(239,68,68,.2)';
+        pc.innerHTML = '<span style="color:var(--danger)"><i class="fas fa-exclamation-triangle" style="margin-left:4px"></i>مبدا و مقصد یکسان هستند</span>';
+        btn.disabled = true; btn.style.opacity = '.45';
+        return;
+    }
+
+    btn.disabled = false; btn.style.opacity = '1';
+    prev.style.display = 'block';
+    prev.style.background = 'rgba(16,185,129,.04)';
+    prev.style.border = '1px solid rgba(16,185,129,.14)';
+    pc.innerHTML = `
+        <div style="margin-bottom:5px"><span style="color:var(--danger)"><i class="fas fa-minus-circle" style="margin-left:3px"></i>حذف</span> از <strong>${curTrans.fileName}</strong> &rarr; ستون <strong>${curTrans.colName}</strong> (ردیف ${curTrans.rowIndex + 1})</div>
+        <div><span style="color:var(--accent)"><i class="fas fa-plus-circle" style="margin-left:3px"></i>افزودن</span> به <strong>${dfn}</strong> &rarr; ستون <strong>${dcn}</strong> (ردیف ${tr + 1})</div>`;
+}
+
+/* ========== اجرای انتقال ========== */
+function doTransfer() {
+    if (!curTrans) return;
+    const dfn = document.getElementById('dFile').value;
+    const dsn = document.getElementById('dSheet').value;
+    const dci = parseInt(document.getElementById('dCol').value);
+    if (isNaN(dci)) return;
+
+    const val = curTrans.value;
+
+    // --- حذف از مبدا ---
+    const srcSh = DB[curTrans.fileName].sheets[curTrans.sheetName];
+    shiftUp(srcSh.data, curTrans.colIndex, curTrans.rowIndex);
+    DB[curTrans.fileName].modified = true;
+    DB[curTrans.fileName].changes.push({ type: 'remove', value: val, col: curTrans.colName, row: curTrans.rowIndex + 1, time: new Date().toLocaleTimeString('fa-IR') });
+
+    // --- افزودن به مقصد ---
+    const dstSh = DB[dfn].sheets[dsn];
+    addCol(dstSh.data, dci, val);
+    DB[dfn].modified = true;
+    DB[dfn].changes.push({ type: 'add', value: val, col: dstSh.headers[dci], time: new Date().toLocaleTimeString('fa-IR') });
+
+    closeM();
+    refreshUI();
+    toast('«' + val + '» با موفقیت منتقل شد', 'ok');
+}
+
+/**
+ * شیفت به بالا: مقدار سلول هدف حذف و مقادیر پایین‌تر یک ردیف بالا می‌آیند
+ */
+function shiftUp(data, ci, ri) {
+    for (let i = ri; i < data.length - 1; i++) {
+        data[i][ci] = data[i + 1][ci];
+    }
+    // آخرین ردیف ستون را خالی کن
+    if (data.length > 0) data[data.length - 1][ci] = '';
+    // اگر آخرین ردیف کاملاً خالی شد، حذفش کن
+    if (data.length > 0) {
+        const last = data[data.length - 1];
+        if (last.every(c => !c || String(c).trim() === '')) data.pop();
+    }
+}
+
+/**
+ * افزودن به ستون: اولین سلول خالی را پر می‌کند یا ردیف جدید می‌سازد
+ */
+function addCol(data, ci, val) {
+    for (let i = 0; i < data.length; i++) {
+        if (!data[i][ci] || String(data[i][ci]).trim() === '') {
+            data[i][ci] = val;
             return;
         }
-        
-        // ساخت جدول نتایج
-        let tableHTML = `<p style="color: #16a34a; margin-bottom: 10px;">✔️ ${results.length} مورد یافت شد. روی ردیف مورد نظر کلیک کنید تا برای انتقال انتخاب شود:</p>`;
-        tableHTML += `<table><thead><tr><th>فایل اکسل</th><th>ستون</th><th>مقدار</th></tr></thead><tbody>`;
-        
-        results.forEach((res, index) => {
-            tableHTML += `
-                <tr class="result-item" onclick="selectSource(${index})" data-index="${index}">
-                    <td>${res.file}</td>
-                    <td>${res.column}</td>
-                    <td>${res.value}</td>
-                </tr>`;
+    }
+    // ردیف جدید
+    const nr = new Array(data.length > 0 ? data[0].length : 1).fill('');
+    nr[ci] = val;
+    data.push(nr);
+}
+
+/* ========== فایل‌های تغییر یافته ========== */
+function renderMod() {
+    const mods = Object.keys(DB).filter(n => DB[n].modified);
+    if (!mods.length) { document.getElementById('secMod').style.display = 'none'; return; }
+    document.getElementById('secMod').style.display = 'block';
+    document.getElementById('modCnt').textContent = mods.length;
+    const el = document.getElementById('modList');
+    el.innerHTML = '';
+    mods.forEach(fn => {
+        const db = DB[fn];
+        const c = document.createElement('div');
+        c.className = 'm-card';
+        let ch = '';
+        db.changes.forEach(x => {
+            const ic = x.type === 'add'
+                ? '<i class="fas fa-plus-circle" style="color:var(--accent)"></i>'
+                : '<i class="fas fa-minus-circle" style="color:var(--danger)"></i>';
+            const lb = x.type === 'add' ? 'افزوده' : 'حذف';
+            ch += `<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;padding:3px 0">${ic}<span>${lb}: «${x.value}»</span>${x.col ? '<span style="color:var(--muted)">← ' + x.col + '</span>' : ''}<span style="color:var(--muted);margin-right:auto;font-size:10.5px;direction:ltr">' + x.time + '</span></div>`;
         });
-        
-        tableHTML += `</tbody></table>`;
-        resultsDiv.innerHTML = tableHTML;
-        
-        // ذخیره نتایج در یک متغیر سراسری برای استفاده در بخش انتقال
-        window.searchResultsData = results;
-        
-        // آماده کردن لیست فایل‌های مقصد
-        const destFileSelect = document.getElementById('destFileSelect');
-        destFileSelect.innerHTML = '<option value="">-- ابتدا فایل مقصد را انتخاب کنید --</option>';
-        Object.keys(database).forEach(fn => {
-            destFileSelect.innerHTML += `<option value="${fn}">${fn}</option>`;
+        c.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="display:flex;align-items:center;gap:9px">
+                    <div style="width:32px;height:32px;background:rgba(245,158,11,.08);border-radius:8px;display:flex;align-items:center;justify-content:center"><i class="fas fa-file-excel" style="color:var(--warn);font-size:13px"></i></div>
+                    <div><p style="font-size:13.5px;font-weight:700">${fn}</p><p style="font-size:10.5px;color:var(--muted)">${db.changes.length} تغییر</p></div>
+                </div>
+                <button class="btn btn-d" onclick="dlFile('${esc(fn)}')"><i class="fas fa-download" style="font-size:11px"></i>دانلود</button>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:9px">${ch}</div>`;
+        el.appendChild(c);
+    });
+}
+
+/* ========== خروجی اکسل ========== */
+function dlFile(fn) {
+    const db = DB[fn];
+    const wb = XLSX.utils.book_new();
+    Object.keys(db.sheets).forEach(sn => {
+        const sh = db.sheets[sn];
+        const hasHead = sh.headers[0] === 'HEAD';
+        const out = [sh.headers];
+        sh.data.forEach((row, i) => {
+            const nr = [...row];
+            if (hasHead) nr[0] = i; // بازسازی ستون شمارنده
+            out.push(nr);
         });
-    }
+        const ws = XLSX.utils.aoa_to_sheet(out);
+        XLSX.utils.book_append_sheet(wb, ws, sn);
+    });
+    XLSX.writeFile(wb, fn);
+    toast(fn + ' دانلود شد', 'ok');
+}
 
-    // وقتی روی یک ردیف از نتایج جستجو کلیک می‌شود
-    function selectSource(index) {
-        const res = window.searchResultsData[index];
-        
-        // هایلایت کردن ردیف انتخاب شده
-        document.querySelectorAll('.result-item').forEach(el => el.style.backgroundColor = '');
-        document.querySelector(`.result-item[data-index="${index}"]`).style.backgroundColor = '#c7d2fe';
-        
-        // پر کردن بخش مبدأ
-        const sourceSelect = document.getElementById('sourceSelect');
-        sourceSelect.innerHTML = `<option value="${index}">${res.file} ---> ستون: ${res.column}</option>`;
-        
-        // نمایش بخش انتقال
-        document.getElementById('transferSection').classList.remove('hidden');
-        
-        // ریست بخش مقصد
-        document.getElementById('destColSelect').innerHTML = '<option value="">-- ستون مقصد --</option>';
-        document.getElementById('destColSelect').disabled = true;
-    }
+function dlAll() {
+    const mods = Object.keys(DB).filter(n => DB[n].modified);
+    mods.forEach((fn, i) => setTimeout(() => dlFile(fn), i * 600));
+}
 
-    // آپدیت ستون‌های مقصد بر اساس فایل انتخاب شده
-    function updateDestColumns() {
-        const fileName = document.getElementById('destFileSelect').value;
-        const colSelect = document.getElementById('destColSelect');
-        colSelect.innerHTML = '<option value="">-- ستون مقصد را انتخاب کنید --</option>';
-        
-        if(fileName && database[fileName]) {
-            const headers = database[fileName][0];
-            headers.forEach((h, i) => {
-                colSelect.innerHTML += `<option value="${i}">${h}</option>`;
-            });
-            colSelect.disabled = false;
-        } else {
-            colSelect.disabled = true;
-        }
-    }
+/* ========== تست ========== */
+function toast(msg, type) {
+    const t = document.getElementById('toast');
+    const ic = document.getElementById('tIcon');
+    document.getElementById('tMsg').textContent = msg;
+    if (type === 'ok')   { ic.className = 'fas fa-check-circle'; ic.style.color = 'var(--accent)'; }
+    else if (type === 'error') { ic.className = 'fas fa-exclamation-circle'; ic.style.color = 'var(--danger)'; }
+    else { ic.className = 'fas fa-info-circle'; ic.style.color = 'var(--muted)'; }
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 3200);
+}
 
-    // تابع انتقال داده
-    function transferData() {
-        const sourceIndex = document.getElementById('sourceSelect').value;
-        const destFileName = document.getElementById('destFileSelect').value;
-        const destColIndex = parseInt(document.getElementById('destColSelect').value);
-        
-        if(sourceIndex === "" || destFileName === "" || isNaN(destColIndex)) {
-            alert("لطفاً مبدا و مقصد را به درستی انتخاب کنید.");
-            return;
-        }
-        
-        const sourceData = window.searchResultsData[parseInt(sourceIndex)];
-        const srcFileName = sourceData.file;
-        const srcColIndex = sourceData.colIndex;
-        const valueToTransfer = sourceData.value;
-        
-        // 1. حذف از مبدأ و شیفت به بالا
-        const srcSheet = database[srcFileName];
-        let sourceRowToRemove = -1;
-        
-        for(let r = 1; r < srcSheet.length; r++) {
-            if(String(srcSheet[r][srcColIndex]).trim() === valueToTransfer) {
-                sourceRowToRemove = r;
-                break;
-            }
-        }
-        
-        if(sourceRowToRemove !== -1) {
-            // شیفت دادن مقادیر به بالا
-            for(let r = sourceRowToRemove; r < srcSheet.length - 1; r++) {
-                srcSheet[r][srcColIndex] = srcSheet[r+1][srcColIndex];
-            }
-            // خالی کردن آخرین سلول ستون
-            let lastRow = srcSheet.length - 1;
-            if(srcSheet[lastRow]) {
-                srcSheet[lastRow][srcColIndex] = "";
-            }
-            
-            // حذف ردیف‌های کاملاً خالی در انتهای فایل برای تمیز ماندن اکسل
-            while(srcSheet.length > 1 && srcSheet[srcSheet.length-1].every(cell => cell === "" || cell === null || cell === undefined)) {
-                srcSheet.pop();
-            }
-            
-            modifiedFiles.add(srcFileName);
-        }
-        
-        // 2. اضافه کردن به مقصد
-        const destSheet = database[destFileName];
-        let added = false;
-        
-        // پیدا کردن اولین ردیف خالی در ستون مقصد
-        for(let r = 1; r < destSheet.length; r++) {
-            if(String(destSheet[r][destColIndex]).trim() === "") {
-                destSheet[r][destColIndex] = valueToTransfer;
-                added = true;
-                break;
-            }
-        }
-        
-        // اگر ستون پر بود، یک ردیف جدید اضافه کن
-        if(!added) {
-            let newRow = new Array(destSheet[0].length).fill("");
-            newRow[destColIndex] = valueToTransfer;
-            destSheet.push(newRow);
-        }
-        
-        modifiedFiles.add(destFileName);
-        
-        alert(`✅ «${valueToTransfer}» با موفقیت انتقال یافت.`);
-        
-        // پاک کردن جستجو و آپدیت صفحه
-        document.getElementById('searchInput').value = '';
-        document.getElementById('searchResults').innerHTML = '';
-        document.getElementById('transferSection').classList.add('hidden');
-        
-        updateUI();
-    }
-
-    // تابع دانلود فایل اکسل
-    function downloadFile(fileName) {
-        if(!database[fileName]) return;
-        
-        // ساخت workbook جدید از داده‌های موجود
-        const ws = XLSX.utils.aoa_to_sheet(database[fileName]);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-        
-        // دانلود فایل
-        XLSX.writeFile(wb, fileName);
-    }
+/* ========== کمکی ========== */
+function esc(s) { return s.replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
 </script>
-
 </body>
 </html>
