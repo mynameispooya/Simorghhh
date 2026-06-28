@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت دیتابیس اکسل</title>
+    <!-- وارد کردن کتابخانه SheetJS برای کار با فایل‌های اکسل -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #16a34a;
+            --success-hover: #15803d;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+        body {
+            font-family: 'Tahoma', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 30px;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            color: var(--text);
+        }
+        input[type="text"], input[type="file"], select {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0 15px 0;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+            direction: rtl;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: var(--success-hover); }
+        .btn-disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background-color: #f1f5f9;
+            font-weight: bold;
+        }
+        tr:hover { background-color: #f8fafc; }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .result-item {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .result-item:hover {
+            background-color: #e0e7ff;
+        }
+        .download-list {
+            list-style: none;
+            padding: 0;
+        }
+        .download-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .badge {
+            background-color: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📊 سیستم جستجو و انتقال داده‌های اکسل</h1>
+
+    <!-- بخش آپلود فایل -->
+    <div class="card">
+        <div class="card-title">📁 بارگذاری فایل‌های اکسل (دیتابیس)</div>
+        <input type="file" id="fileInput" multiple accept=".xlsx, .xls">
+        <div id="fileListStatus" style="color: #16a34a; font-size: 14px;"></div>
+    </div>
+
+    <!-- بخش جستجو -->
+    <div class="card" id="searchSection" style="display: none;">
+        <div class="card-title">🔍 جستجوی پرسنل</div>
+        <input type="text" id="searchInput" placeholder="نام شخص را وارد کنید (مثلاً: حامد شری زاده)">
+        <button class="btn-primary" onclick="searchData()">جستجو</button>
+        
+        <div id="searchResults" style="margin-top: 20px;"></div>
+    </div>
+
+    <!-- بخش انتقال -->
+    <div class="card hidden" id="transferSection">
+        <div class="card-title">🔄 انتقال داده</div>
+        <div class="grid-2">
+            <div>
+                <label><strong>مبدأ (محل فعلی):</strong></label>
+                <select id="sourceSelect" class="source-dest-select"></select>
+            </div>
+            <div>
+                <label><strong>مقصد (محل جدید):</strong></label>
+                <select id="destFileSelect" class="source-dest-select" onchange="updateDestColumns()">
+                    <option value="">-- ابتدا فایل مقصد را انتخاب کنید --</option>
+                </select>
+                <select id="destColSelect" class="source-dest-select" disabled>
+                    <option value="">-- ستون مقصد --</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn-success" onclick="transferData()" style="margin-top: 15px; width: 100%;">✅ انجام انتقال</button>
+    </div>
+
+    <!-- بخش دانلود -->
+    <div class="card hidden" id="downloadSection">
+        <div class="card-title">📥 دانلود فایل‌های تغییر یافته</div>
+        <p style="font-size: 14px; color: #64748b;">فقط فایل‌هایی که تغییر کرده‌اند قابل دانلود هستند.</p>
+        <ul class="download-list" id="downloadList"></ul>
+    </div>
+</div>
+
+<script>
+    // دیتابیس اصلی: فرمت { "نام فایل.xlsx": [ [ردیف1], [ردیف2] ] }
+    let database = {};
+    // نگه داشتن نام فایل‌های ویرایش شده
+    let modifiedFiles = new Set();
+    // مقدار جستجو شده فعلی
+    let currentSearchValue = "";
+
+    // وقتی فایل‌ها انتخاب می‌شوند
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const files = e.target.files;
+        let loadedCount = 0;
+        
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // فرض می‌کنیم داده‌ها در اولین شیت هستند
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // تبدیل به آرایه دوبعدی (AOA)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                
+                database[file.name] = jsonData;
+                modifiedFiles.delete(file.name); // ریست وضعیت تغییرات در صورت آپلود مجدد
+                
+                loadedCount++;
+                if(loadedCount === files.length) {
+                    updateUI();
+                    document.getElementById('fileListStatus').innerText = `${loadedCount} فایل با موفقیت در حافظه بارگذاری شد.`;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    });
+
+    function updateUI() {
+        const searchSection = document.getElementById('searchSection');
+        const downloadSection = document.getElementById('downloadSection');
+        
+        if(Object.keys(database).length > 0) {
+            searchSection.style.display = 'block';
+        } else {
+            searchSection.style.display = 'none';
+        }
+
+        // آپدیت لیست دانلود
+        if(modifiedFiles.size > 0) {
+            downloadSection.classList.remove('hidden');
+            const list = document.getElementById('downloadList');
+            list.innerHTML = '';
+            
+            Object.keys(database).forEach(fileName => {
+                const li = document.createElement('li');
+                const isModified = modifiedFiles.has(fileName);
+                li.innerHTML = `
+                    <span>
+                        ${fileName} 
+                        ${isModified ? '<span class="badge">تغییر یافته</span>' : ''}
+                    </span>
+                    <button class="${isModified ? 'btn-success' : 'btn-disabled'}" 
+                            onclick="downloadFile('${fileName}')" 
+                            ${!isModified ? 'disabled' : ''}>
+                        دانلود
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+        } else {
+            downloadSection.classList.add('hidden');
+        }
+    }
+
+    // تابع جستجو
+    function searchData() {
+        const query = document.getElementById('searchInput').value.trim();
+        if(!query) return;
+        
+        currentSearchValue = query;
+        let results = [];
+        const resultsDiv = document.getElementById('searchResults');
+        resultsDiv.innerHTML = '';
+        
+        // جستجو در تمام فایل‌ها
+        for (const fileName in database) {
+            const sheetData = database[fileName];
+            if(sheetData.length < 2) continue; // حداقل هدر و یک ردیف
+            
+            const headers = sheetData[0];
+            
+            // بررسی همه ستون‌ها
+            headers.forEach((header, colIndex) => {
+                for(let rowIndex = 1; rowIndex < sheetData.length; rowIndex++) {
+                    const cellValue = String(sheetData[rowIndex][colIndex]).trim();
+                    if(cellValue === query) {
+                        results.push({
+                            file: fileName,
+                            column: header,
+                            colIndex: colIndex,
+                            value: query
+                        });
+                        break; // یک اسم در یک ستون تکرار نشده فرض می‌کنیم
+                    }
+                }
+            });
+        }
+        
+        if(results.length === 0) {
+            resultsDiv.innerHTML = '<p style="color: #dc2626;">❌ هیچ موردی یافت نشد.</p>';
+            document.getElementById('transferSection').classList.add('hidden');
+            return;
+        }
+        
+        // ساخت جدول نتایج
+        let tableHTML = `<p style="color: #16a34a; margin-bottom: 10px;">✔️ ${results.length} مورد یافت شد. روی ردیف مورد نظر کلیک کنید تا برای انتقال انتخاب شود:</p>`;
+        tableHTML += `<table><thead><tr><th>فایل اکسل</th><th>ستون</th><th>مقدار</th></tr></thead><tbody>`;
+        
+        results.forEach((res, index) => {
+            tableHTML += `
+                <tr class="result-item" onclick="selectSource(${index})" data-index="${index}">
+                    <td>${res.file}</td>
+                    <td>${res.column}</td>
+                    <td>${res.value}</td>
+                </tr>`;
+        });
+        
+        tableHTML += `</tbody></table>`;
+        resultsDiv.innerHTML = tableHTML;
+        
+        // ذخیره نتایج در یک متغیر سراسری برای استفاده در بخش انتقال
+        window.searchResultsData = results;
+        
+        // آماده کردن لیست فایل‌های مقصد
+        const destFileSelect = document.getElementById('destFileSelect');
+        destFileSelect.innerHTML = '<option value="">-- ابتدا فایل مقصد را انتخاب کنید --</option>';
+        Object.keys(database).forEach(fn => {
+            destFileSelect.innerHTML += `<option value="${fn}">${fn}</option>`;
+        });
+    }
+
+    // وقتی روی یک ردیف از نتایج جستجو کلیک می‌شود
+    function selectSource(index) {
+        const res = window.searchResultsData[index];
+        
+        // هایلایت کردن ردیف انتخاب شده
+        document.querySelectorAll('.result-item').forEach(el => el.style.backgroundColor = '');
+        document.querySelector(`.result-item[data-index="${index}"]`).style.backgroundColor = '#c7d2fe';
+        
+        // پر کردن بخش مبدأ
+        const sourceSelect = document.getElementById('sourceSelect');
+        sourceSelect.innerHTML = `<option value="${index}">${res.file} ---> ستون: ${res.column}</option>`;
+        
+        // نمایش بخش انتقال
+        document.getElementById('transferSection').classList.remove('hidden');
+        
+        // ریست بخش مقصد
+        document.getElementById('destColSelect').innerHTML = '<option value="">-- ستون مقصد --</option>';
+        document.getElementById('destColSelect').disabled = true;
+    }
+
+    // آپدیت ستون‌های مقصد بر اساس فایل انتخاب شده
+    function updateDestColumns() {
+        const fileName = document.getElementById('destFileSelect').value;
+        const colSelect = document.getElementById('destColSelect');
+        colSelect.innerHTML = '<option value="">-- ستون مقصد را انتخاب کنید --</option>';
+        
+        if(fileName && database[fileName]) {
+            const headers = database[fileName][0];
+            headers.forEach((h, i) => {
+                colSelect.innerHTML += `<option value="${i}">${h}</option>`;
+            });
+            colSelect.disabled = false;
+        } else {
+            colSelect.disabled = true;
+        }
+    }
+
+    // تابع انتقال داده
+    function transferData() {
+        const sourceIndex = document.getElementById('sourceSelect').value;
+        const destFileName = document.getElementById('destFileSelect').value;
+        const destColIndex = parseInt(document.getElementById('destColSelect').value);
+        
+        if(sourceIndex === "" || destFileName === "" || isNaN(destColIndex)) {
+            alert("لطفاً مبدا و مقصد را به درستی انتخاب کنید.");
+            return;
+        }
+        
+        const sourceData = window.searchResultsData[parseInt(sourceIndex)];
+        const srcFileName = sourceData.file;
+        const srcColIndex = sourceData.colIndex;
+        const valueToTransfer = sourceData.value;
+        
+        // 1. حذف از مبدأ و شیفت به بالا
+        const srcSheet = database[srcFileName];
+        let sourceRowToRemove = -1;
+        
+        for(let r = 1; r < srcSheet.length; r++) {
+            if(String(srcSheet[r][srcColIndex]).trim() === valueToTransfer) {
+                sourceRowToRemove = r;
+                break;
+            }
+        }
+        
+        if(sourceRowToRemove !== -1) {
+            // شیفت دادن مقادیر به بالا
+            for(let r = sourceRowToRemove; r < srcSheet.length - 1; r++) {
+                srcSheet[r][srcColIndex] = srcSheet[r+1][srcColIndex];
+            }
+            // خالی کردن آخرین سلول ستون
+            let lastRow = srcSheet.length - 1;
+            if(srcSheet[lastRow]) {
+                srcSheet[lastRow][srcColIndex] = "";
+            }
+            
+            // حذف ردیف‌های کاملاً خالی در انتهای فایل برای تمیز ماندن اکسل
+            while(srcSheet.length > 1 && srcSheet[srcSheet.length-1].every(cell => cell === "" || cell === null || cell === undefined)) {
+                srcSheet.pop();
+            }
+            
+            modifiedFiles.add(srcFileName);
+        }
+        
+        // 2. اضافه کردن به مقصد
+        const destSheet = database[destFileName];
+        let added = false;
+        
+        // پیدا کردن اولین ردیف خالی در ستون مقصد
+        for(let r = 1; r < destSheet.length; r++) {
+            if(String(destSheet[r][destColIndex]).trim() === "") {
+                destSheet[r][destColIndex] = valueToTransfer;
+                added = true;
+                break;
+            }
+        }
+        
+        // اگر ستون پر بود، یک ردیف جدید اضافه کن
+        if(!added) {
+            let newRow = new Array(destSheet[0].length).fill("");
+            newRow[destColIndex] = valueToTransfer;
+            destSheet.push(newRow);
+        }
+        
+        modifiedFiles.add(destFileName);
+        
+        alert(`✅ «${valueToTransfer}» با موفقیت انتقال یافت.`);
+        
+        // پاک کردن جستجو و آپدیت صفحه
+        document.getElementById('searchInput').value = '';
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('transferSection').classList.add('hidden');
+        
+        updateUI();
+    }
+
+    // تابع دانلود فایل اکسل
+    function downloadFile(fileName) {
+        if(!database[fileName]) return;
+        
+        // ساخت workbook جدید از داده‌های موجود
+        const ws = XLSX.utils.aoa_to_sheet(database[fileName]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        
+        // دانلود فایل
+        XLSX.writeFile(wb, fileName);
+    }
+</script>
+
+</body>
+</html>
