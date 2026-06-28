@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مدیریت پایگاه داده اکسل</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@200;400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
@@ -14,23 +14,25 @@
         body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;overflow-x:hidden}
         body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 700px 500px at 15% 5%,rgba(16,185,129,.07),transparent),radial-gradient(ellipse 500px 600px at 85% 90%,rgba(245,158,11,.04),transparent);pointer-events:none;z-index:0}
         .noise{position:fixed;inset:0;opacity:.018;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none;z-index:0}
-        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
         .upload-zone{border:2px dashed var(--border);border-radius:16px;padding:52px 24px;text-align:center;cursor:pointer;transition:all .35s ease;position:relative;overflow:hidden}
         .upload-zone::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(16,185,129,.04),transparent 60%);opacity:0;transition:opacity .35s}
         .upload-zone:hover,.upload-zone.over{border-color:var(--accent);background:rgba(16,185,129,.02)}
         .upload-zone:hover::after,.upload-zone.over::after{opacity:1}
         .upload-zone.compact{padding:18px 24px;display:flex;align-items:center;gap:14px;text-align:right}
+        .upload-zone.loading{pointer-events:none;opacity:.6}
         .r-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;transition:all .25s ease;opacity:0;animation:cardIn .35s ease forwards}
         .r-card:hover{background:var(--card-h);border-color:rgba(16,185,129,.28);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.35)}
-        .r-card.del{border-color:rgba(239,68,68,.22);background:linear-gradient(135deg,rgba(239,68,68,.03),var(--card))}
-        .r-card.del:hover{border-color:rgba(239,68,68,.4);box-shadow:0 8px 28px rgba(239,68,68,.08)}
+        .r-card.is-del{border-color:rgba(239,68,68,.2);background:linear-gradient(135deg,rgba(239,68,68,.03),var(--card))}
+        .r-card.is-del:hover{border-color:rgba(239,68,68,.4);box-shadow:0 8px 28px rgba(239,68,68,.08)}
         @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.35}}
         @keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes spin{to{transform:rotate(360deg)}}
         .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:100;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
         .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px 28px 24px;max-width:540px;width:92%;max-height:88vh;overflow-y:auto;animation:slideDown .3s ease}
-        .fpill{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:100px;padding:5px 12px 5px 8px;font-size:12.5px;transition:all .2s;cursor:default}
+        .fpill{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:100px;padding:5px 12px 5px 8px;font-size:12.5px;transition:all .2s}
         .fpill.mod{border-color:var(--warn);box-shadow:0 0 14px rgba(245,158,11,.12)}
         .fpill .dot{width:6px;height:6px;border-radius:50%;background:var(--warn);display:none;animation:pulseDot 1.4s infinite}
         .fpill.mod .dot{display:block}
@@ -43,9 +45,9 @@
         .btn{border:none;border-radius:8px;padding:7px 16px;font-family:'Vazirmatn',sans-serif;font-weight:600;cursor:pointer;transition:all .2s;font-size:13px;display:inline-flex;align-items:center;gap:6px}
         .btn-p{background:var(--accent);color:#fff}.btn-p:hover{background:var(--accent-h);box-shadow:0 4px 16px rgba(16,185,129,.28)}
         .btn-o{background:transparent;color:var(--fg);border:1px solid var(--border);font-weight:400}.btn-o:hover{border-color:var(--muted);background:rgba(255,255,255,.02)}
-        .btn-t{background:rgba(16,185,129,.08);color:var(--accent);border:1px solid rgba(16,185,129,.16);font-size:12.5px;padding:5px 13px}.btn-t:hover{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.35);box-shadow:0 2px 10px rgba(16,185,129,.12)}
-        .btn-del{background:rgba(239,68,68,.07);color:var(--danger);border:1px solid rgba(239,68,68,.15);font-size:12.5px;padding:5px 13px}.btn-del:hover{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35);box-shadow:0 2px 10px rgba(239,68,68,.1)}
-        .btn-res{background:rgba(16,185,129,.07);color:var(--accent);border:1px solid rgba(16,185,129,.15);font-size:12.5px;padding:5px 13px}.btn-res:hover{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.35)}
+        .btn-t{background:rgba(16,185,129,.08);color:var(--accent);border:1px solid rgba(16,185,129,.16);font-size:12.5px;padding:5px 13px}.btn-t:hover{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.35)}
+        .btn-x{background:rgba(239,68,68,.07);color:var(--danger);border:1px solid rgba(239,68,68,.15);font-size:12.5px;padding:5px 13px}.btn-x:hover{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35)}
+        .btn-rs{background:rgba(16,185,129,.07);color:var(--accent);border:1px solid rgba(16,185,129,.15);font-size:12.5px;padding:5px 13px}.btn-rs:hover{background:rgba(16,185,129,.15)}
         .btn-dl{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.16);font-size:12.5px;padding:5px 13px}.btn-dl:hover{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.35)}
         .btn-r{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:3px 5px;transition:color .15s}.btn-r:hover{color:var(--danger)}
         .si{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 46px 14px 18px;color:var(--fg);font-family:'Vazirmatn',sans-serif;font-size:15px;width:100%;transition:all .3s;outline:none}
@@ -56,16 +58,16 @@
         .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(110px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-size:13.5px;z-index:200;transition:transform .45s cubic-bezier(.16,1,.3,1);box-shadow:0 10px 35px rgba(0,0,0,.45);display:flex;align-items:center;gap:9px}
         .toast.show{transform:translateX(-50%) translateY(0)}
         .m-card{background:var(--card);border:1px solid rgba(245,158,11,.18);border-radius:12px;padding:16px 20px;transition:all .2s}
-        .m-card:hover{border-color:rgba(245,158,11,.38);box-shadow:0 4px 20px rgba(245,158,11,.06)}
+        .m-card:hover{border-color:rgba(245,158,11,.38)}
         .top-line{height:2px;background:linear-gradient(90deg,transparent,var(--accent),var(--warn),var(--accent),transparent);opacity:.5}
-        .empty{text-align:center;padding:50px 20px;color:var(--muted)}
-        .empty i{font-size:44px;margin-bottom:14px;opacity:.25;display:block}
+        .empty{text-align:center;padding:50px 20px;color:var(--muted)}.empty i{font-size:44px;margin-bottom:14px;opacity:.25;display:block}
         .stat-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;flex:1;min-width:100px}
         .stat-num{font-size:24px;font-weight:900;color:var(--accent);line-height:1.1}
         .stat-label{font-size:11px;color:var(--muted);margin-top:4px}
         .strike{color:var(--danger);text-decoration:line-through;text-decoration-thickness:2px}
+        .spin{animation:spin .8s linear infinite;display:inline-block}
         .r-card:nth-child(1){animation-delay:0s}.r-card:nth-child(2){animation-delay:.04s}.r-card:nth-child(3){animation-delay:.08s}.r-card:nth-child(4){animation-delay:.12s}.r-card:nth-child(5){animation-delay:.16s}.r-card:nth-child(6){animation-delay:.2s}.r-card:nth-child(7){animation-delay:.24s}.r-card:nth-child(8){animation-delay:.28s}.r-card:nth-child(9){animation-delay:.32s}.r-card:nth-child(10){animation-delay:.36s}
-        @media(max-width:640px){.r-card{padding:12px 14px}.modal-box{padding:20px 18px}.stat-box{min-width:80px;padding:10px 8px}.stat-num{font-size:18px}}
+        @media(max-width:640px){.r-card{padding:12px 14px}.modal-box{padding:20px 18px}.stat-box{min-width:80px;padding:10px 8px}.stat-num{font-size:18px}.act-btns{flex-direction:column;gap:5px!important}}
     </style>
 </head>
 <body>
@@ -76,13 +78,8 @@
 <header style="position:relative;z-index:1;border-bottom:1px solid var(--border);background:rgba(10,14,20,.85);backdrop-filter:blur(14px)">
     <div style="max-width:1120px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:11px">
-            <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#047857);border-radius:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(16,185,129,.25)">
-                <i class="fas fa-database" style="color:#fff;font-size:16px"></i>
-            </div>
-            <div>
-                <h1 style="font-size:17px;font-weight:800;line-height:1.2">مدیریت پایگاه داده اکسل</h1>
-                <p style="font-size:10.5px;color:var(--muted)">جستجو ، حذف ، انتقال و خروجی داده‌ها</p>
-            </div>
+            <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--accent),#047857);border-radius:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(16,185,129,.25)"><i class="fas fa-database" style="color:#fff;font-size:16px"></i></div>
+            <div><h1 style="font-size:17px;font-weight:800;line-height:1.2">مدیریت پایگاه داده اکسل</h1><p style="font-size:10.5px;color:var(--muted)">جستجو ، حذف ، انتقال و خروجی داده‌ها</p></div>
         </div>
         <div id="statsBar" style="display:none;gap:10px;flex-wrap:wrap">
             <div class="stat-box"><div class="stat-num" id="sFiles">0</div><div class="stat-label">فایل</div></div>
@@ -99,24 +96,21 @@
             <div id="upBig" style="transition:all .3s">
                 <div style="margin-bottom:14px"><i class="fas fa-cloud-upload-alt" style="font-size:44px;color:var(--accent);opacity:.5"></i></div>
                 <p style="font-size:16px;font-weight:700;margin-bottom:5px">فایل‌های اکسل خود را اینجا رها کنید</p>
-                <p style="font-size:13px;color:var(--muted)">یا کلیک کنید برای انتخاب فایل &nbsp;<span style="opacity:.6">(xlsx , xls)</span></p>
+                <p style="font-size:13px;color:var(--muted)">یا کلیک کنید برای انتخاب فایل <span style="opacity:.6">(xlsx , xls)</span></p>
                 <p style="font-size:11px;color:var(--muted);margin-top:12px;opacity:.6">امکان بارگذاری چندین فایل به صورت همزمان</p>
             </div>
             <div id="upSmall" style="display:none;align-items:center;gap:12px;width:100%">
                 <i class="fas fa-cloud-upload-alt" style="font-size:18px;color:var(--accent);opacity:.6"></i>
                 <span style="font-size:13px;color:var(--muted)">برای افزودن فایل جدید کلیک کنید یا فایل را رها کنید</span>
-                <span style="margin-right:auto;font-size:11px;color:var(--muted);opacity:.5">drag & drop</span>
+                <span id="loadSpin" style="display:none;margin-right:auto"><i class="fas fa-circle-notch spin" style="color:var(--accent);font-size:15px"></i></span>
+                <span id="loadText" style="display:none;margin-right:auto;font-size:12px;color:var(--accent)"></span>
             </div>
         </div>
     </section>
-
     <section id="secFiles" style="margin-top:18px;display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <h2 style="font-size:13px;font-weight:600;color:var(--muted)"><i class="fas fa-folder-open" style="margin-left:5px"></i>فایل‌های بارگذاری شده</h2>
-        </div>
+        <h2 style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px"><i class="fas fa-folder-open" style="margin-left:5px"></i>فایل‌های بارگذاری شده</h2>
         <div id="pills" style="display:flex;flex-wrap:wrap;gap:8px"></div>
     </section>
-
     <section id="secSearch" style="margin-top:26px;display:none">
         <div style="position:relative">
             <input type="text" id="sInput" class="si" placeholder="جستجوی نام شخص...  (Ctrl+K)" autocomplete="off">
@@ -127,7 +121,6 @@
         <div id="rList" style="margin-top:12px;display:flex;flex-direction:column;gap:9px"></div>
         <div id="rEmpty" class="empty" style="display:none"><i class="fas fa-search"></i><p style="font-size:14px;font-weight:600">نتیجه‌ای یافت نشد</p><p style="font-size:12.5px;margin-top:4px">عبارت دیگری را جستجو کنید</p></div>
     </section>
-
     <section id="secMod" style="margin-top:36px;display:none">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
             <div style="width:4px;height:20px;background:var(--warn);border-radius:2px"></div>
@@ -135,13 +128,10 @@
             <span class="b b-m" id="modCnt">0</span>
         </div>
         <div id="modList" style="display:flex;flex-direction:column;gap:10px"></div>
-        <div style="margin-top:14px">
-            <button class="btn btn-dl" onclick="dlAll()" style="padding:9px 18px;font-size:13.5px"><i class="fas fa-download"></i>دانلود همه فایل‌های تغییر یافته</button>
-        </div>
+        <div style="margin-top:14px"><button class="btn btn-dl" onclick="dlAll()" style="padding:9px 18px;font-size:13.5px"><i class="fas fa-download"></i>دانلود همه فایل‌های تغییر یافته</button></div>
     </section>
 </main>
 
-<!-- مودال انتقال -->
 <div id="tModal" class="modal-bg" style="display:none">
     <div class="modal-box">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
@@ -149,16 +139,14 @@
             <button onclick="closeM()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;padding:4px"><i class="fas fa-times"></i></button>
         </div>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:14px">
-            <p style="font-size:10.5px;color:var(--muted);margin-bottom:7px;font-weight:700;letter-spacing:.3px">مبدا</p>
+            <p style="font-size:10.5px;color:var(--muted);margin-bottom:7px;font-weight:700">مبدا</p>
             <div id="srcInfo"></div>
         </div>
         <div style="text-align:center;margin:-4px 0;position:relative;z-index:1">
-            <div style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--surface);border:1px solid var(--border);border-radius:50%">
-                <i class="fas fa-arrow-down" style="color:var(--accent);font-size:13px"></i>
-            </div>
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;background:var(--surface);border:1px solid var(--border);border-radius:50%"><i class="fas fa-arrow-down" style="color:var(--accent);font-size:13px"></i></div>
         </div>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-top:-2px;margin-bottom:18px">
-            <p style="font-size:10.5px;color:var(--muted);margin-bottom:11px;font-weight:700;letter-spacing:.3px">مقصد</p>
+            <p style="font-size:10.5px;color:var(--muted);margin-bottom:11px;font-weight:700">مقصد</p>
             <div style="margin-bottom:11px"><label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px">فایل</label><select id="dFile" class="sel" onchange="onDF()"></select></div>
             <div style="margin-bottom:11px"><label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px">شیت</label><select id="dSheet" class="sel" onchange="onDS()"></select></div>
             <div><label style="font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px">ستون</label><select id="dCol" class="sel" onchange="onDC()"></select></div>
@@ -175,12 +163,17 @@
 </div>
 
 <script>
-/* ==================== وضعیت برنامه ==================== */
-const DB = {};
-let curResults = [];
-let curTrans = null;
+/* ================================================================
+   وضعیت برنامه
+   ================================================================ */
+const DB = {};           // نام فایل → { sheets, modified, changes }
+let curResults = [];     // نتایج جستجوی فعلی
+let curTrans = null;     // آیتم منتخب برای انتقال
+const DEL_MARK = '~~';   // علامت حذف برای سازگاری رفت‌وبرگشت
 
-/* ==================== المان‌های DOM ==================== */
+/* ================================================================
+   المان‌های DOM
+   ================================================================ */
 const upZone = document.getElementById('upZone');
 const fInput = document.getElementById('fInput');
 const sInput = document.getElementById('sInput');
@@ -190,7 +183,9 @@ const rInfo  = document.getElementById('rInfo');
 const rEmpty = document.getElementById('rEmpty');
 const tModal = document.getElementById('tModal');
 
-/* ==================== آپلود فایل ==================== */
+/* ================================================================
+   آپلود فایل
+   ================================================================ */
 upZone.addEventListener('click', () => fInput.click());
 upZone.addEventListener('dragover', e => { e.preventDefault(); upZone.classList.add('over'); });
 upZone.addEventListener('dragleave', () => upZone.classList.remove('over'));
@@ -198,101 +193,94 @@ upZone.addEventListener('drop', e => { e.preventDefault(); upZone.classList.remo
 fInput.addEventListener('change', e => { loadFiles(e.target.files); fInput.value = ''; });
 
 async function loadFiles(files) {
+    const arr = Array.from(files);
+    const hasFiles = Object.keys(DB).length > 0;
+    if (hasFiles) {
+        document.getElementById('loadSpin').style.display = 'inline-block';
+        document.getElementById('loadText').style.display = 'inline';
+        document.getElementById('loadText').textContent = 'در حال خواندن ' + arr.length + ' فایل...';
+        upZone.classList.add('loading');
+    }
+
     let done = 0;
-    const total = files.length;
-    for (const f of Array.from(files)) {
+    for (const file of arr) {
         try {
-            const buffer = await f.arrayBuffer();
-            const workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(buffer);
-
-            const db = { sheets: {}, modified: false, changes: [] };
-            workbook.eachSheet(worksheet => {
-                const headers = [];
-                const data = [];
-                const deleted = {};
-                let maxCols = 0;
-                const rows = [];
-
-                /* خواندن تمام ردیف‌ها */
-                worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-                    const rowData = [];
-                    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                        rowData[colNumber - 1] = cellVal(cell);
-                        maxCols = Math.max(maxCols, colNumber);
-                        /* تشخیص خط‌خورده (حذف شده در خروجی قبلی) */
-                        if (cell.font && cell.font.strike) {
-                            const dri = rowNumber - 2;
-                            const dci = colNumber - 1;
-                            deleted[dri + '-' + dci] = true;
-                        }
-                    });
-                    rows.push({ rn: rowNumber, d: rowData });
-                });
-
-                /* یکسان‌سازی طول ستون‌ها */
-                rows.forEach(r => { while (r.d.length < maxCols) r.d.push(''); });
-
-                if (rows.length > 0) {
-                    headers.push(...rows[0].d);
-                    for (let i = 1; i < rows.length; i++) data.push(rows[i].d);
-                }
-
-                if (headers.length > 0) {
-                    db.sheets[worksheet.name] = { headers, data, deleted };
-                    /* اگر خط‌خورده‌ای پیدا شد، فایل تغییر یافته محسوب می‌شود */
-                    if (Object.keys(deleted).length > 0) db.modified = true;
-                }
-            });
-
-            DB[f.name] = db;
+            const buffer = await file.arrayBuffer();
+            const db = readExcel(buffer);
+            DB[file.name] = db;
         } catch (err) {
-            toast('خطا در خواندن ' + f.name, 'error');
-            console.error(err);
+            console.error('خطا در خواندن فایل:', file.name, err);
+            toast('خطا در خواندن ' + file.name, 'error');
         }
         done++;
-        if (done === total) {
-            refreshUI();
-            toast(total === 1 ? 'فایل با موفقیت بارگذاری شد' : total + ' فایل با موفقیت بارگذاری شد', 'ok');
-        }
     }
+
+    /* پنهان کردن لودینگ */
+    document.getElementById('loadSpin').style.display = 'none';
+    document.getElementById('loadText').style.display = 'none';
+    upZone.classList.remove('loading');
+
+    refreshUI();
+    if (done > 0) toast(arr.length === 1 ? 'فایل با موفقیت بارگذاری شد' : arr.length + ' فایل با موفقیت بارگذاری شد', 'ok');
 }
 
-/* استخراج مقدار سلول از فرمت‌های مختلف ExcelJS */
-function cellVal(cell) {
-    const v = cell.value;
-    if (v === null || v === undefined) return '';
-    if (typeof v === 'string') return v;
-    if (typeof v === 'number') return v;
-    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
-    if (v instanceof Date) return v.toLocaleDateString('fa-IR');
-    if (v.richText) return v.richText.map(rt => rt.text).join('');
-    if (v.formula !== undefined) return v.result !== undefined && v.result !== null ? String(v.result) : '';
-    if (v.hyperlink) return v.text || v.hyperlink;
-    if (v.error) return '';
-    return String(v);
+/* ================================================================
+   خواندن اکسل — SheetJS به عنوان موتور اصلی
+   علامت DEL_MARK برای شناسایی سلول‌های حذف‌شده قبلی
+   ================================================================ */
+function readExcel(buffer) {
+    const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+    const db = { sheets: {}, modified: false, changes: [] };
+
+    wb.SheetNames.forEach(sn => {
+        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: '' });
+        if (raw.length === 0) return;
+
+        const headers = raw[0].map(h => String(h).trim());
+        const data = raw.slice(1).map(r => r.map(c => (c === undefined || c === null) ? '' : c));
+        const deleted = {};
+
+        /* اسکن سلول‌ها برای شناسایی علامت حذف */
+        data.forEach((row, ri) => {
+            row.forEach((cell, ci) => {
+                const cs = String(cell).trim();
+                if (cs.startsWith(DEL_MARK) && cs.endsWith(DEL_MARK) && cs.length > 4) {
+                    deleted[ri + '-' + ci] = true;
+                    /* پاک‌سازی علامت از مقدار ذخیره‌شده */
+                    data[ri][ci] = cs.slice(2, -2);
+                }
+            });
+        });
+
+        db.sheets[sn] = { headers, data, deleted };
+        if (Object.keys(deleted).length > 0) db.modified = true;
+    });
+
+    return db;
 }
 
-/* ==================== رفرش رابط کاربری ==================== */
+/* ================================================================
+   رفرش رابط کاربری
+   ================================================================ */
 function refreshUI() {
     const names = Object.keys(DB);
     const has = names.length > 0;
 
-    document.getElementById('upBig').style.display   = has ? 'none' : 'block';
-    document.getElementById('upSmall').style.display  = has ? 'flex' : 'none';
+    document.getElementById('upBig').style.display  = has ? 'none' : 'block';
+    document.getElementById('upSmall').style.display = has ? 'flex' : 'none';
     upZone.classList.toggle('compact', has);
-    document.getElementById('secFiles').style.display  = has ? 'block' : 'none';
-    document.getElementById('secSearch').style.display  = has ? 'block' : 'none';
-    document.getElementById('statsBar').style.display   = has ? 'flex'  : 'none';
+    document.getElementById('secFiles').style.display = has ? 'block' : 'none';
+    document.getElementById('secSearch').style.display = has ? 'block' : 'none';
+    document.getElementById('statsBar').style.display  = has ? 'flex'  : 'none';
 
-    let tRows = 0; const colSet = new Set();
+    let tR = 0; const cS = new Set();
     names.forEach(n => Object.values(DB[n].sheets).forEach(s => {
-        tRows += s.data.length;
-        s.headers.forEach(h => { if (h !== 'HEAD') colSet.add(n + ':' + h); });
+        tR += s.data.length;
+        s.headers.forEach(h => { if (h !== 'HEAD') cS.add(n + ':' + h); });
     }));
     document.getElementById('sFiles').textContent = names.length;
-    document.getElementById('sRows').textContent  = tRows;
-    document.getElementById('sCols').textContent  = colSet.size;
+    document.getElementById('sRows').textContent  = tR;
+    document.getElementById('sCols').textContent  = cS.size;
 
     renderPills();
     renderMod();
@@ -302,33 +290,27 @@ function refreshUI() {
 function renderPills() {
     const el = document.getElementById('pills'); el.innerHTML = '';
     Object.keys(DB).forEach(n => {
-        const d = DB[n];
-        const p = document.createElement('div');
+        const d = DB[n]; const p = document.createElement('div');
         p.className = 'fpill' + (d.modified ? ' mod' : '');
-        p.innerHTML = `<span class="dot"></span><i class="fas fa-file-excel" style="color:${d.modified ? 'var(--warn)' : 'var(--accent)'};font-size:12px"></i><span>${escH(n)}</span><button class="btn-r" onclick="rmFile('${escQ(n)}')" title="حذف"><i class="fas fa-times"></i></button>`;
+        p.innerHTML = '<span class="dot"></span><i class="fas fa-file-excel" style="color:' + (d.modified ? 'var(--warn)' : 'var(--accent)') + ';font-size:12px"></i><span>' + escH(n) + '</span><button class="btn-r" onclick="rmFile(\'' + escQ(n) + '\')" title="حذف"><i class="fas fa-times"></i></button>';
         el.appendChild(p);
     });
 }
 
 function rmFile(n) { delete DB[n]; refreshUI(); toast(n + ' حذف شد', 'info'); }
 
-/* ==================== جستجو ==================== */
+/* ================================================================
+   جستجو
+   ================================================================ */
 let sTimer;
 sInput.addEventListener('input', e => {
     const q = e.target.value.trim();
     sClear.style.display = q ? 'block' : 'none';
     clearTimeout(sTimer);
-    sTimer = setTimeout(() => {
-        if (q) doSearch(q);
-        else { rList.innerHTML = ''; rInfo.style.display = 'none'; rEmpty.style.display = 'none'; }
-    }, 180);
+    sTimer = setTimeout(() => { if (q) doSearch(q); else { rList.innerHTML = ''; rInfo.style.display = 'none'; rEmpty.style.display = 'none'; } }, 180);
 });
 
-function clearS() {
-    sInput.value = ''; sClear.style.display = 'none';
-    rList.innerHTML = ''; rInfo.style.display = 'none'; rEmpty.style.display = 'none';
-    sInput.focus();
-}
+function clearS() { sInput.value = ''; sClear.style.display = 'none'; rList.innerHTML = ''; rInfo.style.display = 'none'; rEmpty.style.display = 'none'; sInput.focus(); }
 
 document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); sInput.focus(); sInput.select(); }
@@ -346,12 +328,11 @@ function doSearch(q) {
                 row.forEach((cell, ci) => {
                     const cs = String(cell).trim();
                     if (cs && cs.toLowerCase().includes(lq)) {
-                        const isDel = !!(sh.deleted && sh.deleted[ri + '-' + ci]);
                         res.push({
                             fileName: fn, sheetName: sn,
                             colName: sh.headers[ci] || ('ستون ' + (ci + 1)),
                             colIndex: ci, rowIndex: ri, value: cs,
-                            isDeleted: isDel
+                            isDeleted: !!(sh.deleted && sh.deleted[ri + '-' + ci])
                         });
                     }
                 });
@@ -368,39 +349,30 @@ function doSearch(q) {
 
     res.forEach((r, i) => {
         const c = document.createElement('div');
-        c.className = 'r-card' + (r.isDeleted ? ' del' : '');
+        c.className = 'r-card' + (r.isDeleted ? ' is-del' : '');
         c.style.animationDelay = Math.min(i * 0.035, 0.35) + 's';
 
         /* نام با هایلایت */
         const hl = hlText(escH(r.value), q);
-        const nameHtml = r.isDeleted
-            ? `<span class="strike">${hl}</span>`
-            : hl;
+        const nameHtml = r.isDeleted ? '<span class="strike">' + hl + '</span>' : hl;
 
         /* بج‌ها */
-        let badges = `<span class="b b-f"><i class="fas fa-file-excel" style="font-size:9px"></i>${escH(r.fileName)}</span>`;
-        badges += `<span class="b b-s"><i class="fas fa-table" style="font-size:9px"></i>${escH(r.sheetName)}</span>`;
-        badges += `<span class="b b-c"><i class="fas fa-columns" style="font-size:9px"></i>${escH(r.colName)}</span>`;
-        badges += `<span style="font-size:10.5px;color:var(--muted)">ردیف ${r.rowIndex + 1}</span>`;
-        if (r.isDeleted) badges += `<span class="b b-d"><i class="fas fa-trash-alt" style="font-size:9px"></i>حذف شده</span>`;
+        let badges = '<span class="b b-f"><i class="fas fa-file-excel" style="font-size:9px"></i>' + escH(r.fileName) + '</span>';
+        badges += '<span class="b b-s"><i class="fas fa-table" style="font-size:9px"></i>' + escH(r.sheetName) + '</span>';
+        badges += '<span class="b b-c"><i class="fas fa-columns" style="font-size:9px"></i>' + escH(r.colName) + '</span>';
+        badges += '<span style="font-size:10.5px;color:var(--muted)">ردیف ' + (r.rowIndex + 1) + '</span>';
+        if (r.isDeleted) badges += '<span class="b b-d"><i class="fas fa-trash-alt" style="font-size:9px"></i>حذف شده</span>';
 
         /* دکمه‌ها */
         let btns = '';
         if (r.isDeleted) {
-            btns = `<button class="btn btn-res" onclick="restoreCell(${i})"><i class="fas fa-undo" style="font-size:11px"></i>بازگردانی</button>`;
+            btns = '<button class="btn btn-rs" onclick="restoreCell(' + i + ')"><i class="fas fa-undo" style="font-size:11px"></i>بازگردانی</button>';
         } else {
-            btns = `<button class="btn btn-t" onclick="openM(${i})"><i class="fas fa-exchange-alt" style="font-size:11px"></i>انتقال</button>`;
-            btns += `<button class="btn btn-del" onclick="deleteCell(${i})"><i class="fas fa-trash-alt" style="font-size:11px"></i>حذف</button>`;
+            btns = '<button class="btn btn-t" onclick="openM(' + i + ')"><i class="fas fa-exchange-alt" style="font-size:11px"></i>انتقال</button>';
+            btns += '<button class="btn btn-x" onclick="deleteCell(' + i + ')"><i class="fas fa-trash-alt" style="font-size:11px"></i>حذف</button>';
         }
 
-        c.innerHTML = `
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                <div style="flex:1;min-width:180px">
-                    <div style="font-size:15.5px;font-weight:700;margin-bottom:9px;direction:ltr;text-align:right">${nameHtml}</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">${badges}</div>
-                </div>
-                <div style="display:flex;gap:7px;flex-shrink:0">${btns}</div>
-            </div>`;
+        c.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:180px"><div style="font-size:15.5px;font-weight:700;margin-bottom:9px;direction:ltr;text-align:right">' + nameHtml + '</div><div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + badges + '</div></div><div class="act-btns" style="display:flex;gap:7px;flex-shrink:0">' + btns + '</div></div>';
         rList.appendChild(c);
     });
 }
@@ -411,7 +383,9 @@ function hlText(t, q) {
     return t.replace(re, '<mark style="background:rgba(16,185,129,.22);color:var(--accent);padding:0 2px;border-radius:3px">$1</mark>');
 }
 
-/* ==================== حذف و بازگردانی ==================== */
+/* ================================================================
+   حذف و بازگردانی
+   ================================================================ */
 function deleteCell(idx) {
     const r = curResults[idx];
     if (!r) return;
@@ -419,12 +393,9 @@ function deleteCell(idx) {
     if (!sh.deleted) sh.deleted = {};
     sh.deleted[r.rowIndex + '-' + r.colIndex] = true;
     DB[r.fileName].modified = true;
-    DB[r.fileName].changes.push({
-        type: 'delete', value: r.value, col: r.colName,
-        row: r.rowIndex + 1, time: new Date().toLocaleTimeString('fa-IR')
-    });
+    DB[r.fileName].changes.push({ type: 'delete', value: r.value, col: r.colName, row: r.rowIndex + 1, time: new Date().toLocaleTimeString('fa-IR') });
     refreshUI();
-    toast('«' + r.value + '» حذف شد', 'ok');
+    toast('"' + r.value + '" علامت حذف خورد', 'ok');
 }
 
 function restoreCell(idx) {
@@ -432,40 +403,29 @@ function restoreCell(idx) {
     if (!r) return;
     const sh = DB[r.fileName].sheets[r.sheetName];
     if (sh.deleted) delete sh.deleted[r.rowIndex + '-' + r.colIndex];
-    DB[r.fileName].changes.push({
-        type: 'restore', value: r.value, col: r.colName,
-        row: r.rowIndex + 1, time: new Date().toLocaleTimeString('fa-IR')
-    });
+    DB[r.fileName].changes.push({ type: 'restore', value: r.value, col: r.colName, row: r.rowIndex + 1, time: new Date().toLocaleTimeString('fa-IR') });
     /* بررسی آیا فایل هنوز تغییر دارد */
-    let stillMod = false;
+    let still = false;
     const db = DB[r.fileName];
-    for (const s of Object.values(db.sheets)) {
-        if (s.deleted && Object.keys(s.deleted).length > 0) { stillMod = true; break; }
-    }
-    if (!stillMod) stillMod = db.changes.some(c => c.type === 'add' || c.type === 'remove');
-    db.modified = stillMod;
+    for (const s of Object.values(db.sheets)) { if (s.deleted && Object.keys(s.deleted).length > 0) { still = true; break; } }
+    if (!still) still = db.changes.some(c => c.type === 'add' || c.type === 'remove');
+    db.modified = still;
     refreshUI();
-    toast('«' + r.value + '» بازگردانده شد', 'ok');
+    toast('"' + r.value + '" بازگردانده شد', 'ok');
 }
 
-/* ==================== مودال انتقال ==================== */
+/* ================================================================
+   مودال انتقال
+   ================================================================ */
 function openM(idx) {
     curTrans = curResults[idx];
     if (!curTrans) return;
-    document.getElementById('srcInfo').innerHTML = `
-        <div style="font-weight:700;font-size:15px;margin-bottom:7px">${escH(curTrans.value)}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-            <span class="b b-f">${escH(curTrans.fileName)}</span>
-            <span class="b b-s">${escH(curTrans.sheetName)}</span>
-            <span class="b b-c">${escH(curTrans.colName)}</span>
-            <span style="font-size:10.5px;color:var(--muted)">ردیف ${curTrans.rowIndex + 1}</span>
-        </div>`;
+    document.getElementById('srcInfo').innerHTML = '<div style="font-weight:700;font-size:15px;margin-bottom:7px">' + escH(curTrans.value) + '</div><div style="display:flex;flex-wrap:wrap;gap:5px"><span class="b b-f">' + escH(curTrans.fileName) + '</span><span class="b b-s">' + escH(curTrans.sheetName) + '</span><span class="b b-c">' + escH(curTrans.colName) + '</span><span style="font-size:10.5px;color:var(--muted)">ردیف ' + (curTrans.rowIndex + 1) + '</span></div>';
     fillDestFiles();
     tModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     document.getElementById('tPrev').style.display = 'none';
 }
-
 function closeM() { tModal.style.display = 'none'; document.body.style.overflow = ''; curTrans = null; }
 tModal.addEventListener('click', e => { if (e.target === tModal) closeM(); });
 
@@ -474,71 +434,50 @@ function fillDestFiles() {
     Object.keys(DB).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); });
     onDF();
 }
-
 function onDF() {
     const fn = document.getElementById('dFile').value;
     const s = document.getElementById('dSheet'); s.innerHTML = '';
     Object.keys(DB[fn].sheets).forEach(sn => { const o = document.createElement('option'); o.value = sn; o.textContent = sn; s.appendChild(o); });
     onDS();
 }
-
 function onDS() {
-    const fn = document.getElementById('dFile').value;
-    const sn = document.getElementById('dSheet').value;
-    const sh = DB[fn].sheets[sn];
-    const s = document.getElementById('dCol'); s.innerHTML = '';
-    sh.headers.forEach((h, i) => {
-        if (h === 'HEAD') return;
-        const o = document.createElement('option'); o.value = i; o.textContent = h; s.appendChild(o);
-    });
+    const fn = document.getElementById('dFile').value, sn = document.getElementById('dSheet').value;
+    const sh = DB[fn].sheets[sn]; const s = document.getElementById('dCol'); s.innerHTML = '';
+    sh.headers.forEach((h, i) => { if (h === 'HEAD') return; const o = document.createElement('option'); o.value = i; o.textContent = h; s.appendChild(o); });
     onDC();
 }
-
 function onDC() { updPrev(); }
 
 function updPrev() {
     if (!curTrans) return;
-    const dfn = document.getElementById('dFile').value;
-    const dsn = document.getElementById('dSheet').value;
+    const dfn = document.getElementById('dFile').value, dsn = document.getElementById('dSheet').value;
     const dci = parseInt(document.getElementById('dCol').value);
     if (isNaN(dci)) return;
-    const dsh = DB[dfn].sheets[dsn];
-    const dcn = dsh.headers[dci];
+    const dsh = DB[dfn].sheets[dsn], dcn = dsh.headers[dci];
 
-    /* یافتن اولین سلول خالی در ستون مقصد */
     let tr = -1;
-    for (let i = 0; i < dsh.data.length; i++) {
-        if (!dsh.data[i][dci] || String(dsh.data[i][dci]).trim() === '') { tr = i; break; }
-    }
+    for (let i = 0; i < dsh.data.length; i++) { if (!dsh.data[i][dci] || String(dsh.data[i][dci]).trim() === '') { tr = i; break; } }
     if (tr === -1) tr = dsh.data.length;
 
     const same = curTrans.fileName === dfn && curTrans.sheetName === dsn && curTrans.colIndex === dci;
-    const prev = document.getElementById('tPrev');
-    const pc = document.getElementById('tPrevC');
-    const btn = document.getElementById('cfmBtn');
+    const prev = document.getElementById('tPrev'), pc = document.getElementById('tPrevC'), btn = document.getElementById('cfmBtn');
 
     if (same) {
-        prev.style.display = 'block';
-        prev.style.background = 'rgba(239,68,68,.05)';
-        prev.style.border = '1px solid rgba(239,68,68,.2)';
+        prev.style.display = 'block'; prev.style.background = 'rgba(239,68,68,.05)'; prev.style.border = '1px solid rgba(239,68,68,.2)';
         pc.innerHTML = '<span style="color:var(--danger)"><i class="fas fa-exclamation-triangle" style="margin-left:4px"></i>مبدا و مقصد یکسان هستند</span>';
-        btn.disabled = true; btn.style.opacity = '.45';
-        return;
+        btn.disabled = true; btn.style.opacity = '.45'; return;
     }
     btn.disabled = false; btn.style.opacity = '1';
-    prev.style.display = 'block';
-    prev.style.background = 'rgba(16,185,129,.04)';
-    prev.style.border = '1px solid rgba(16,185,129,.14)';
-    pc.innerHTML = `
-        <div style="margin-bottom:5px"><span style="color:var(--danger)"><i class="fas fa-minus-circle" style="margin-left:3px"></i>حذف</span> از <strong>${escH(curTrans.fileName)}</strong> &rarr; ستون <strong>${escH(curTrans.colName)}</strong> (ردیف ${curTrans.rowIndex + 1})</div>
-        <div><span style="color:var(--accent)"><i class="fas fa-plus-circle" style="margin-left:3px"></i>افزودن</span> به <strong>${escH(dfn)}</strong> &rarr; ستون <strong>${escH(dcn)}</strong> (ردیف ${tr + 1})</div>`;
+    prev.style.display = 'block'; prev.style.background = 'rgba(16,185,129,.04)'; prev.style.border = '1px solid rgba(16,185,129,.14)';
+    pc.innerHTML = '<div style="margin-bottom:5px"><span style="color:var(--danger)"><i class="fas fa-minus-circle" style="margin-left:3px"></i>حذف</span> از <strong>' + escH(curTrans.fileName) + '</strong> ← ستون <strong>' + escH(curTrans.colName) + '</strong> (ردیف ' + (curTrans.rowIndex + 1) + ')</div><div><span style="color:var(--accent)"><i class="fas fa-plus-circle" style="margin-left:3px"></i>افزودن</span> به <strong>' + escH(dfn) + '</strong> ← ستون <strong>' + escH(dcn) + '</strong> (ردیف ' + (tr + 1) + ')</div>';
 }
 
-/* ==================== اجرای انتقال ==================== */
+/* ================================================================
+   اجرای انتقال
+   ================================================================ */
 function doTransfer() {
     if (!curTrans) return;
-    const dfn = document.getElementById('dFile').value;
-    const dsn = document.getElementById('dSheet').value;
+    const dfn = document.getElementById('dFile').value, dsn = document.getElementById('dSheet').value;
     const dci = parseInt(document.getElementById('dCol').value);
     if (isNaN(dci)) return;
     const val = curTrans.value;
@@ -546,19 +485,193 @@ function doTransfer() {
     /* حذف از مبدا با شیفت به بالا */
     const srcSh = DB[curTrans.fileName].sheets[curTrans.sheetName];
     shiftUp(srcSh.data, curTrans.colIndex, curTrans.rowIndex);
-    /* پاک کردن فلگ حذف برای سلول‌های شیفت‌یافته */
+    /* به‌روزرسانی نقشه حذف‌شده‌ها بعد از شیفت */
     if (srcSh.deleted) {
-        const newDel = {};
+        const nd = {};
         Object.keys(srcSh.deleted).forEach(k => {
             const [ri, ci] = k.split('-').map(Number);
             if (ci === curTrans.colIndex) {
-                if (ri < curTrans.rowIndex) newDel[k] = true;
-                else if (ri > curTrans.rowIndex) newDel[(ri - 1) + '-' + ci] = true;
-            } else {
-                newDel[k] = true;
-            }
+                if (ri < curTrans.rowIndex) nd[k] = true;
+                else if (ri > curTrans.rowIndex) nd[(ri - 1) + '-' + ci] = true;
+            } else { nd[k] = true; }
         });
-        srcSh.deleted = newDel;
+        srcSh.deleted = nd;
     }
     DB[curTrans.fileName].modified = true;
-    DB[curTrans.fileName].changes.push({ type: 'remove', value: val, col: curTrans.colName, row: curTrans.rowIndex + 1, time
+    DB[curTrans.fileName].changes.push({ type: 'remove', value: val, col: curTrans.colName, row: curTrans.rowIndex + 1, time: new Date().toLocaleTimeString('fa-IR') });
+
+    /* افزودن به مقصد */
+    const dstSh = DB[dfn].sheets[dsn];
+    addCol(dstSh.data, dci, val);
+    DB[dfn].modified = true;
+    DB[dfn].changes.push({ type: 'add', value: val, col: dstSh.headers[dci], time: new Date().toLocaleTimeString('fa-IR') });
+
+    closeM(); refreshUI();
+    toast('"' + val + '" با موفقیت منتقل شد', 'ok');
+}
+
+/* شیفت به بالا: مقدار حذف و مقادیر پایین‌تر یک ردیف بالا می‌آیند */
+function shiftUp(data, ci, ri) {
+    for (let i = ri; i < data.length - 1; i++) data[i][ci] = data[i + 1][ci];
+    if (data.length > 0) data[data.length - 1][ci] = '';
+    if (data.length > 0 && data[data.length - 1].every(c => !c || String(c).trim() === '')) data.pop();
+}
+
+/* افزودن به ستون: اولین سلول خالی یا ردیف جدید */
+function addCol(data, ci, val) {
+    for (let i = 0; i < data.length; i++) { if (!data[i][ci] || String(data[i][ci]).trim() === '') { data[i][ci] = val; return; } }
+    const nr = new Array(data.length > 0 ? data[0].length : 1).fill('');
+    nr[ci] = val; data.push(nr);
+}
+
+/* ================================================================
+   فایل‌های تغییر یافته
+   ================================================================ */
+function renderMod() {
+    const mods = Object.keys(DB).filter(n => DB[n].modified);
+    if (!mods.length) { document.getElementById('secMod').style.display = 'none'; return; }
+    document.getElementById('secMod').style.display = 'block';
+    document.getElementById('modCnt').textContent = mods.length;
+    const el = document.getElementById('modList'); el.innerHTML = '';
+    mods.forEach(fn => {
+        const db = DB[fn]; let ch = '';
+        db.changes.forEach(x => {
+            let ic, lb;
+            if (x.type === 'add')        { ic = '<i class="fas fa-plus-circle" style="color:var(--accent)"></i>'; lb = 'افزوده'; }
+            else if (x.type === 'remove') { ic = '<i class="fas fa-minus-circle" style="color:var(--danger)"></i>'; lb = 'انتقال (حذف)'; }
+            else if (x.type === 'delete') { ic = '<i class="fas fa-trash-alt" style="color:var(--danger)"></i>'; lb = 'حذف'; }
+            else                          { ic = '<i class="fas fa-undo" style="color:var(--accent)"></i>'; lb = 'بازگردانی'; }
+            ch += '<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;padding:3px 0">' + ic + '<span>' + lb + ': "' + escH(x.value) + '"</span>' + (x.col ? '<span style="color:var(--muted)">← ' + escH(x.col) + '</span>' : '') + '<span style="color:var(--muted);margin-right:auto;font-size:10.5px;direction:ltr">' + x.time + '</span></div>';
+        });
+        const c = document.createElement('div'); c.className = 'm-card';
+        c.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="display:flex;align-items:center;gap:9px"><div style="width:32px;height:32px;background:rgba(245,158,11,.08);border-radius:8px;display:flex;align-items:center;justify-content:center"><i class="fas fa-file-excel" style="color:var(--warn);font-size:13px"></i></div><div><p style="font-size:13.5px;font-weight:700">' + escH(fn) + '</p><p style="font-size:10.5px;color:var(--muted)">' + db.changes.length + ' تغییر</p></div></div><button class="btn btn-dl" onclick="dlFile(\'' + escQ(fn) + '\')"><i class="fas fa-download" style="font-size:11px"></i>دانلود</button></div><div style="border-top:1px solid var(--border);padding-top:9px">' + ch + '</div>';
+        el.appendChild(c);
+    });
+}
+
+/* ================================================================
+   خروجی اکسل — با خط قرمز خط‌خورده برای سلول‌های حذف‌شده
+   ================================================================ */
+async function dlFile(fn) {
+    const db = DB[fn];
+    let ok = false;
+
+    /* تلاش اول: ExcelJS برای خط قرمز خط‌خورده */
+    if (typeof ExcelJS !== 'undefined') {
+        try {
+            await writeExcelJS(db, fn);
+            ok = true;
+        } catch (err) {
+            console.warn('ExcelJS نوشتن ناموفق، فال‌بک به SheetJS:', err);
+        }
+    }
+
+    /* فال‌بک: SheetJS — علامت متنی به جای خط واقعی */
+    if (!ok) {
+        writeSheetJS(db, fn);
+    }
+
+    toast(fn + ' دانلود شد', 'ok');
+}
+
+/* ---------- نوشتن با ExcelJS (خط قرمز + علامت متنی) ---------- */
+async function writeExcelJS(db, fileName) {
+    const workbook = new ExcelJS.Workbook();
+
+    Object.keys(db.sheets).forEach(sn => {
+        const sh = db.sheets[sn];
+        const ws = workbook.addWorksheet(sn);
+
+        /* ردیف هدر */
+        const hRow = ws.addRow(sh.headers);
+        hRow.eachCell(cell => { cell.font = { bold: true, size: 11 }; cell.alignment = { horizontal: 'center' }; });
+
+        /* ردیف‌های داده */
+        sh.data.forEach((row, ri) => {
+            const rObj = ws.addRow(row);
+            rObj.eachCell((cell, colNum) => {
+                const ci = colNum - 1;
+                const key = ri + '-' + ci;
+                if (sh.deleted && sh.deleted[key]) {
+                    /* خط قرمز خط‌خورده + علامت متنی برای سازگاری */
+                    cell.font = { strike: true, color: { argb: 'FFFF0000' }, size: 11 };
+                    cell.value = DEL_MARK + cell.value + DEL_MARK;
+                }
+            });
+        });
+    });
+
+    const buf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, fileName);
+}
+
+/* ---------- نوشتن با SheetJS (فال‌بک — فقط علامت متنی) ---------- */
+function writeSheetJS(db, fileName) {
+    const wb = XLSX.utils.book_new();
+
+    Object.keys(db.sheets).forEach(sn => {
+        const sh = db.sheets[sn];
+        const hasHead = sh.headers[0] === 'HEAD';
+        const out = [sh.headers];
+
+        sh.data.forEach((row, ri) => {
+            const nr = row.map((cell, ci) => {
+                const key = ri + '-' + ci;
+                if (sh.deleted && sh.deleted[key]) return DEL_MARK + cell + DEL_MARK;
+                return cell;
+            });
+            if (hasHead) nr[0] = ri;
+            out.push(nr);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(out);
+        XLSX.utils.book_append_sheet(wb, ws, sn);
+    });
+
+    XLSX.writeFile(wb, fileName);
+}
+
+/* دانلود همه فایل‌های تغییر یافته */
+async function dlAll() {
+    const mods = Object.keys(DB).filter(n => DB[n].modified);
+    for (let i = 0; i < mods.length; i++) {
+        await dlFile(mods[i]);
+        if (i < mods.length - 1) await new Promise(r => setTimeout(r, 700));
+    }
+}
+
+/* ذخیره فایل با Blob */
+function saveAs(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ================================================================
+   تست (Toast)
+   ================================================================ */
+function toast(msg, type) {
+    const t = document.getElementById('toast'), ic = document.getElementById('tIcon');
+    document.getElementById('tMsg').textContent = msg;
+    if (type === 'ok')         { ic.className = 'fas fa-check-circle'; ic.style.color = 'var(--accent)'; }
+    else if (type === 'error') { ic.className = 'fas fa-exclamation-circle'; ic.style.color = 'var(--danger)'; }
+    else                       { ic.className = 'fas fa-info-circle'; ic.style.color = 'var(--muted)'; }
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ================================================================
+   توابع کمکی
+   ================================================================ */
+function escH(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escQ(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+</script>
+
+<!-- ExcelJS برای خروجی با خط قرمز خط‌خورده (اختیاری — فال‌بک به SheetJS) -->
+<script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/index.min.js" onerror="console.warn('Buffer polyfill load failed')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" onerror="console.warn('ExcelJS load failed — SheetJS fallback active')"></script>
+</body>
+</html>
