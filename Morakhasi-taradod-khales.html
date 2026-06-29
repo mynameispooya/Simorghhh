@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جستجوی پرسنلی | تطبیق کد پرسنلی</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@200;400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-deep: #0a0f1a;
+            --bg-card: #111827;
+            --bg-card-hover: #1a2332;
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.25);
+            --accent-warm: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #1e293b;
+            --danger: #ef4444;
+            --success: #22c55e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* پس‌زمینه متحرک */
+        .bg-scene {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .bg-scene .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            animation: orbFloat 20s ease-in-out infinite alternate;
+        }
+        .bg-scene .orb:nth-child(1) {
+            width: 500px; height: 500px;
+            background: var(--accent);
+            top: -10%; right: -5%;
+            animation-delay: 0s;
+        }
+        .bg-scene .orb:nth-child(2) {
+            width: 400px; height: 400px;
+            background: var(--accent-warm);
+            bottom: -10%; left: -5%;
+            animation-delay: -7s;
+        }
+        .bg-scene .orb:nth-child(3) {
+            width: 300px; height: 300px;
+            background: #6366f1;
+            top: 50%; left: 40%;
+            animation-delay: -14s;
+            opacity: 0.08;
+        }
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(40px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 50px) scale(0.95); }
+            100% { transform: translate(30px, 20px) scale(1.05); }
+        }
+
+        /* شبکه نقطه‌ای */
+        .dot-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .main-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        /* هدر */
+        .app-header {
+            text-align: center;
+            padding: 40px 0 32px;
+        }
+        .app-header h1 {
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent), #34d399, var(--accent-warm));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+        .app-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 400;
+        }
+
+        /* کارت آپلود */
+        .upload-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            opacity: 0;
+            transition: opacity 0.35s;
+            pointer-events: none;
+        }
+        .upload-card:hover {
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+        }
+        .upload-card.loaded {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 4px 24px var(--accent-glow);
+        }
+        .upload-card.loaded .upload-icon {
+            color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.04);
+        }
+        .upload-zone.drag-over {
+            transform: scale(1.01);
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            transition: all 0.3s;
+        }
+
+        .upload-zone h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+        .upload-zone span {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .file-input { display: none; }
+
+        /* اطلاعات فایل بارگذاری شده */
+        .file-info {
+            display: none;
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: rgba(16, 185, 129, 0.06);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            border-radius: 10px;
+            animation: slideUp 0.3s ease;
+        }
+        .file-info.show { display: flex; align-items: center; gap: 12px; }
+        .file-info .fi-icon {
+            width: 40px; height: 40px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .file-info .fi-text { flex: 1; min-width: 0; }
+        .file-info .fi-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-info .fi-meta {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .file-info .fi-remove {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .file-info .fi-remove:hover {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* برچسب شماره */
+        .step-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+        .step-badge.s1 {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--accent);
+        }
+        .step-badge.s2 {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--accent-warm);
+        }
+
+        /* دکمه جستجو */
+        .search-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 18px 24px;
+            border: none;
+            border-radius: 14px;
+            font-family: 'Vazirmatn', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, #059669, #10b981, #34d399);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--accent-glow);
+            position: relative;
+            overflow: hidden;
+        }
+        .search-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s;
+        }
+        .search-btn:hover::after { transform: translateX(100%); }
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.4);
+        }
+        .search-btn:active { transform: translateY(0); }
+        .search-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .search-btn:disabled::after { display: none; }
+
+        /* نتایج */
+        .results-section {
+            display: none;
+            animation: slideUp 0.5s ease;
+        }
+        .results-section.show { display: block; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-card .stat-num {
+            font-size: 1.8rem;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .stat-card .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .stat-card:nth-child(1) .stat-num { color: var(--accent); }
+        .stat-card:nth-child(2) .stat-num { color: var(--accent-warm); }
+        .stat-card:nth-child(3) .stat-num { color: var(--danger); }
+
+        /* جدول */
+        .table-wrapper {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+        .table-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .table-header h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--accent);
+            font-family: 'Vazirmatn', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+        .download-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 500px;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #0f172a;
+            padding: 14px 18px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: right;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border);
+            z-index: 2;
+        }
+        tbody tr {
+            transition: background 0.15s;
+        }
+        tbody tr:hover {
+            background: rgba(16, 185, 129, 0.04);
+        }
+        tbody td {
+            padding: 12px 18px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+            white-space: nowrap;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .row-num {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            font-weight: 400;
+        }
+        .code-cell {
+            font-weight: 800;
+            color: var(--accent);
+            direction: ltr;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* حالت خالی */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--text-secondary);
+            opacity: 0.3;
+            margin-bottom: 16px;
+        }
+        .empty-state p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* نوتیفیکیشن */
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-family: 'Vazirmatn', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 600;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.error {
+            background: #7f1d1d;
+            border: 1px solid #991b1b;
+            color: #fca5a5;
+        }
+        .toast.success {
+            background: #064e3b;
+            border: 1px solid #065f46;
+            color: #6ee7b7;
+        }
+        .toast.warning {
+            background: #78350f;
+            border: 1px solid #92400e;
+            color: #fcd34d;
+        }
+
+        /* اسپینر */
+        .spinner {
+            width: 20px; height: 20px;
+            border: 2.5px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* لوگوی پشت سرخط */
+        .watermark {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.72rem;
+            color: rgba(148,163,184,0.2);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ریسپانسیو */
+        @media (max-width: 768px) {
+            .app-header h1 { font-size: 1.6rem; }
+            .stats-row { grid-template-columns: 1fr; }
+            .upload-card { padding: 20px; }
+            .upload-zone { padding: 28px 16px; }
+            .main-wrapper { padding: 16px 12px 40px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- پس‌زمینه -->
+    <div class="bg-scene">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+    </div>
+    <div class="dot-grid"></div>
+
+    <!-- نوتیفیکیشن -->
+    <div class="toast" id="toast"></div>
+
+    <div class="main-wrapper">
+
+        <!-- هدر -->
+        <header class="app-header">
+            <h1><i class="fas fa-search-plus" style="margin-left:8px;"></i>جستجوی پرسنلی</h1>
+            <p>بارگذاری دو فایل اکسل، تطبیق کد پرسنلی و استخراج اطلاعات</p>
+        </header>
+
+        <!-- بخش آپلود -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+
+            <!-- فایل ۱ - فهرست اصلی پرسنلی -->
+            <div class="upload-card" id="card1">
+                <div class="step-badge s1">۱</div>
+                <div class="upload-zone" id="zone1" role="button" tabindex="0" aria-label="بارگذاری فایل اکسل ۱ - فهرست اصلی پرسنلی">
+                    <div class="upload-icon"><i class="fas fa-file-excel"></i></div>
+                    <h3>فایل اکسل ۱ — فهرست اصلی پرسنلی</h3>
+                    <span>فایل حاوی ستون‌های کد_پرسنلی، نام_و_نام_خانوادگی، واحد_سازمانی</span>
+                </div>
+                <input type="file" class="file-input" id="input1" accept=".xlsx,.xls,.csv" aria-hidden="true">
+                <div class="file-info" id="info1">
+                    <div class="fi-icon"><i class="fas fa-table"></i></div>
+                    <div class="fi-text">
+                        <div class="fi-name" id="name1"></div>
+                        <div class="fi-meta" id="meta1"></div>
+                    </div>
+                    <button class="fi-remove" id="remove1" title="حذف فایل" aria-label="حذف فایل"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <!-- فایل ۲ - لیست کدهای مورد جستجو -->
+            <div class="upload-card" id="card2">
+                <div class="step-badge s2">۲</div>
+                <div class="upload-zone" id="zone2" role="button" tabindex="0" aria-label="بارگذاری فایل اکسل ۲ - کدهای مورد جستجو">
+                    <div class="upload-icon"><i class="fas fa-file-excel"></i></div>
+                    <h3>فایل اکسل ۲ — کدهای مورد جستجو</h3>
+                    <span>فایل حاوی ستون کد_پرسنلی برای جستجو در فایل ۱</span>
+                </div>
+                <input type="file" class="file-input" id="input2" accept=".xlsx,.xls,.csv" aria-hidden="true">
+                <div class="file-info" id="info2">
+                    <div class="fi-icon"><i class="fas fa-table"></i></div>
+                    <div class="fi-text">
+                        <div class="fi-name" id="name2"></div>
+                        <div class="fi-meta" id="meta2"></div>
+                    </div>
+                    <button class="fi-remove" id="remove2" title="حذف فایل" aria-label="حذف فایل"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- دکمه جستجو -->
+        <section class="mb-8">
+            <button class="search-btn" id="searchBtn" disabled>
+                <span class="spinner" id="spinner"></span>
+                <i class="fas fa-bolt" id="btnIcon"></i>
+                <span id="btnText">شروع تطبیق و جستجو</span>
+            </button>
+        </section>
+
+        <!-- نتایج -->
+        <section class="results-section" id="resultsSection">
+
+            <!-- آمار -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-num" id="statFound">0</div>
+                    <div class="stat-label">پیدا شده</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num" id="statSearched">0</div>
+                    <div class="stat-label">جستجو شده</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num" id="statNotFound">0</div>
+                    <div class="stat-label">پیدا نشده</div>
+                </div>
+            </div>
+
+            <!-- جدول -->
+            <div class="table-wrapper">
+                <div class="table-header">
+                    <h3><i class="fas fa-list-check" style="margin-left:8px; color:var(--accent);"></i>نتایج تطبیق</h3>
+                    <button class="download-btn" id="downloadBtn">
+                        <i class="fas fa-download"></i>
+                        دانلود اکسل
+                    </button>
+                </div>
+                <div class="table-scroll" id="tableScroll">
+                    <!-- جدول یا حالت خالی اینجا قرار می‌گیرد -->
+                </div>
+            </div>
+
+        </section>
+    </div>
+
+    <div class="watermark">Persnel Search Tool</div>
+
+    <script>
+        // ============ متغیرهای سراسری ============
+        let file1Data = null;  // آرایه‌ای از آبجکت‌های فایل ۱
+        let file2Data = null;  // آرایه‌ای از آبجکت‌های فایل ۲
+        let resultData = null; // نتیجه نهایی
+
+        // ============ عناصر DOM ============
+        const card1 = document.getElementById('card1');
+        const card2 = document.getElementById('card2');
+        const zone1 = document.getElementById('zone1');
+        const zone2 = document.getElementById('zone2');
+        const input1 = document.getElementById('input1');
+        const input2 = document.getElementById('input2');
+        const info1 = document.getElementById('info1');
+        const info2 = document.getElementById('info2');
+        const name1El = document.getElementById('name1');
+        const name2El = document.getElementById('name2');
+        const meta1El = document.getElementById('meta1');
+        const meta2El = document.getElementById('meta2');
+        const remove1 = document.getElementById('remove1');
+        const remove2 = document.getElementById('remove2');
+        const searchBtn = document.getElementById('searchBtn');
+        const spinner = document.getElementById('spinner');
+        const btnIcon = document.getElementById('btnIcon');
+        const btnText = document.getElementById('btnText');
+        const resultsSection = document.getElementById('resultsSection');
+        const tableScroll = document.getElementById('tableScroll');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const toastEl = document.getElementById('toast');
+
+        // ============ نمایش نوتیفیکیشن ============
+        let toastTimer = null;
+        function showToast(message, type = 'success') {
+            clearTimeout(toastTimer);
+            toastEl.className = 'toast ' + type;
+            const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', warning: 'fa-exclamation-triangle' };
+            toastEl.innerHTML = `<i class="fas ${icons[type] || icons.success}"></i><span>${message}</span>`;
+            requestAnimationFrame(() => {
+                toastEl.classList.add('show');
+            });
+            toastTimer = setTimeout(() => {
+                toastEl.classList.remove('show');
+            }, 3500);
+        }
+
+        // ============ تنظیم منطق آپلود ============
+        function setupUploadZone(zone, input, card, infoEl, nameEl, metaEl, removeBtn, fileNum) {
+            // کلیک روی زون
+            zone.addEventListener('click', () => input.click());
+            zone.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    input.click();
+                }
+            });
+
+            // درگ اند دراپ
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('drag-over');
+            });
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('drag-over');
+            });
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0], fileNum);
+                }
+            });
+
+            // انتخاب فایل
+            input.addEventListener('change', () => {
+                if (input.files.length > 0) {
+                    handleFile(input.files[0], fileNum);
+                }
+            });
+
+            // حذف فایل
+            removeBtn.addEventListener('click', () => {
+                if (fileNum === 1) {
+                    file1Data = null;
+                    input.value = '';
+                } else {
+                    file2Data = null;
+                    input.value = '';
+                }
+                infoEl.classList.remove('show');
+                card.classList.remove('loaded');
+                updateSearchBtn();
+            });
+        }
+
+        setupUploadZone(zone1, input1, card1, info1, name1El, meta1El, remove1, 1);
+        setupUploadZone(zone2, input2, card2, info2, name2El, meta2El, remove2, 2);
+
+        // ============ خواندن فایل اکسل ============
+        function handleFile(file, fileNum) {
+            const validExts = ['.xlsx', '.xls', '.csv'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!validExts.includes(ext)) {
+                showToast('لطفا فایل با فرمت xlsx, xls یا csv بارگذاری کنید', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                    if (jsonData.length === 0) {
+                        showToast('فایل خالی است یا داده‌ای ندارد', 'error');
+                        return;
+                    }
+
+                    // بررسی وجود ستون کد_پرسنلی
+                    const hasCodeCol = jsonData[0].hasOwnProperty('کد_پرسنلی');
+                    if (!hasCodeCol) {
+                        // تلاش برای پیدا کردن ستون مشابه
+                        const keys = Object.keys(jsonData[0]);
+                        const similarKey = keys.find(k => k.includes('کد') && k.includes('پرسنلی'));
+                        if (similarKey) {
+                            // تغییر نام کلید به کد_پرسنلی
+                            jsonData.forEach(row => {
+                                row['کد_پرسنلی'] = row[similarKey];
+                            });
+                        } else {
+                            showToast('ستون "کد_پرسنلی" در فایل پیدا نشد. لطفا نام ستون را بررسی کنید.', 'error');
+                            return;
+                        }
+                    }
+
+                    if (fileNum === 1) {
+                        file1Data = jsonData;
+                        name1El.textContent = file.name;
+                        meta1El.textContent = `${jsonData.length} ردیف · شیت: ${sheetName}`;
+                        info1.classList.add('show');
+                        card1.classList.add('loaded');
+                    } else {
+                        file2Data = jsonData;
+                        name2El.textContent = file.name;
+                        meta2El.textContent = `${jsonData.length} ردیف · شیت: ${sheetName}`;
+                        info2.classList.add('show');
+                        card2.classList.add('loaded');
+                    }
+
+                    updateSearchBtn();
+                    showToast(`فایل ${fileNum} با موفقیت بارگذاری شد (${jsonData.length} ردیف)`, 'success');
+                } catch (err) {
+                    console.error(err);
+                    showToast('خطا در خواندن فایل. لطفا فایل معتبر بارگذاری کنید.', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ============ فعال/غیرفعال کردن دکمه جستجو ============
+        function updateSearchBtn() {
+            searchBtn.disabled = !(file1Data && file2Data);
+        }
+
+        // ============ نرمال‌سازی کد پرسنلی ============
+        function normalizeCode(val) {
+            if (val === null || val === undefined || val === '') return '';
+            // تبدیل به رشته، حذف فاصله، تبدیل اعداد فارسی/عربی به انگلیسی
+            let s = String(val).trim();
+            s = s.replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660));
+            s = s.replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0));
+            return s;
+        }
+
+        // ============ عملیات جستجو ============
+        searchBtn.addEventListener('click', () => {
+            if (!file1Data || !file2Data) return;
+
+            // نمایش لودینگ
+            spinner.style.display = 'block';
+            btnIcon.style.display = 'none';
+            btnText.textContent = 'در حال تطبیق...';
+            searchBtn.disabled = true;
+
+            // استفاده از setTimeout برای اجازه رندر قبل از پردازش
+            setTimeout(() => {
+                try {
+                    performSearch();
+                } catch (err) {
+                    console.error(err);
+                    showToast('خطا در پردازش داده‌ها: ' + err.message, 'error');
+                }
+                spinner.style.display = 'none';
+                btnIcon.style.display = 'inline';
+                btnText.textContent = 'شروع تطبیق و جستجو';
+                updateSearchBtn();
+            }, 100);
+        });
+
+        function performSearch() {
+            // ساخت ایندکس از فایل ۱ بر اساس کد پرسنلی نرمال‌سازی شده
+            const indexMap = new Map();
+            file1Data.forEach(row => {
+                const code = normalizeCode(row['کد_پرسنلی']);
+                if (code !== '') {
+                    indexMap.set(code, {
+                        code: row['کد_پرسنلی'],
+                        fullName: row['نام_و_نام_خانوادگی'] || '',
+                        unit: row['واحد_سازمانی'] || ''
+                    });
+                }
+            });
+
+            // جستجوی کدهای فایل ۲
+            const found = [];
+            const notFoundCodes = [];
+            const searchedSet = new Set();
+
+            file2Data.forEach(row => {
+                const code = normalizeCode(row['کد_پرسنلی']);
+                if (code === '' || searchedSet.has(code)) return;
+                searchedSet.add(code);
+
+                const match = indexMap.get(code);
+                if (match) {
+                    found.push({
+                        'کد_پرسنلی': match.code,
+                        'نام_و_نام_خانوادگی': match.fullName,
+                        'واحد_سازمانی': match.unit
+                    });
+                } else {
+                    notFoundCodes.push(code);
+                }
+            });
+
+            resultData = found;
+
+            // بروزرسانی آمار
+            animateNumber('statFound', found.length);
+            animateNumber('statSearched', searchedSet.size);
+            animateNumber('statNotFound', notFoundCodes.length);
+
+            // رندر جدول
+            renderTable(found);
+
+            // نمایش بخش نتایج
+            resultsSection.classList.add('show');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // پیام نهایی
+            if (found.length > 0) {
+                showToast(`${found.length} ردیف پیدا شد و آماده دانلود است`, 'success');
+            } else {
+                showToast('هیچ تطبیقی پیدا نشد', 'warning');
+            }
+
+            if (notFoundCodes.length > 0 && notFoundCodes.length <= 10) {
+                console.warn('کدهای پیدا نشده:', notFoundCodes.join(', '));
+            }
+        }
+
+        // ============ انیمیشن عدد ============
+        function animateNumber(elId, target) {
+            const el = document.getElementById(elId);
+            const duration = 600;
+            const start = performance.now();
+            const from = 0;
+
+            function step(now) {
+                const progress = Math.min((now - start) / duration, 1);
+                // easeOutExpo
+                const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+                el.textContent = Math.round(from + (target - from) * eased);
+                if (progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        // ============ رندر جدول ============
+        function renderTable(data) {
+            if (data.length === 0) {
+                tableScroll.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>هیچ ردیفی یافت نشد. کدهای پرسنلی فایل ۲ در فایل ۱ وجود ندارند.</p>
+                    </div>`;
+                return;
+            }
+
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th style="width:50px;">ردیف</th>
+                        <th>کد پرسنلی</th>
+                        <th>نام و نام خانوادگی</th>
+                        <th>واحد سازمانی</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            data.forEach((row, i) => {
+                html += `<tr>
+                    <td class="row-num">${i + 1}</td>
+                    <td class="code-cell">${escapeHtml(String(row['کد_پرسنلی']))}</td>
+                    <td>${escapeHtml(row['نام_و_نام_خانوادگی'])}</td>
+                    <td>${escapeHtml(row['واحد_سازمانی'])}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>`;
+            tableScroll.innerHTML = html;
+        }
+
+        // ============ جلوگیری از XSS ============
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ============ دانلود اکسل ============
+        downloadBtn.addEventListener('click', () => {
+            if (!resultData || resultData.length === 0) {
+                showToast('داده‌ای برای دانلود وجود ندارد', 'warning');
+                return;
+            }
+
+            try {
+                // ساخت Worksheet
+                const wsData = [['کد_پرسنلی', 'نام_و_نام_خانوادگی', 'واحد_سازمانی']];
+                resultData.forEach(row => {
+                    wsData.push([row['کد_پرسنلی'], row['نام_و_نام_خانوادگی'], row['واحد_سازمانی']]);
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+                // تنظیم عرض ستون‌ها
+                ws['!cols'] = [
+                    { wch: 16 },
+                    { wch: 30 },
+                    { wch: 24 }
+                ];
+
+                // ساخت Workbook و دانلود
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'نتایج جستجو');
+                XLSX.writeFile(wb, 'نتایج_جستجوی_پرسنلی.xlsx');
+
+                showToast('فایل اکسل با موفقیت دانلود شد', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('خطا در ساخت فایل اکسل', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
