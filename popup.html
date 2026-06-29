@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 680px;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      font-size: 13px;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      direction: rtl;
+    }
+
+    /* هدر */
+    .header {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      padding: 16px 20px;
+      border-bottom: 2px solid #00ff88;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 {
+      font-size: 16px;
+      color: #00ff88;
+      font-weight: 700;
+    }
+    .header .status {
+      font-size: 11px;
+      color: #888;
+    }
+    .header .status span { color: #00ff88; }
+
+    /* دکمه‌ها */
+    .actions {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      background: #1a1a2e;
+      border-bottom: 1px solid #2a2a4a;
+    }
+    .btn {
+      padding: 7px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-refresh { background: #00ff88; color: #000; font-weight: 700; }
+    .btn-refresh:hover { background: #00cc6a; }
+    .btn-clear { background: #ff4757; color: #fff; }
+    .btn-clear:hover { background: #e8384f; }
+    .btn-copy {
+      background: #2a2a4a;
+      color: #00ff88;
+      border: 1px solid #3a3a5a;
+      padding: 4px 12px;
+      font-size: 11px;
+    }
+    .btn-copy:hover { background: #3a3a5a; }
+
+    /* بخش‌ها */
+    .section {
+      margin: 12px 20px;
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .section-title {
+      background: #1a1a2e;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+    .section-title .num {
+      background: #00ff88;
+      color: #000;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .section-body { padding: 12px 14px; }
+
+    /* کد */
+    .code-box {
+      background: #0a0a15;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 11.5px;
+      direction: ltr;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.6;
+      color: #c0c0c0;
+      position: relative;
+    }
+    .code-box::-webkit-scrollbar { width: 6px; }
+    .code-box::-webkit-scrollbar-thumb { background: #3a3a5a; border-radius: 3px; }
+
+    .copy-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    /* وضعیت */
+    .found {
+      color: #00ff88;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .not-found {
+      color: #ff4757;
+      font-size: 12px;
+      padding: 16px;
+      text-align: center;
+      background: #1a0a0e;
+      border-radius: 6px;
+    }
+
+    /* لیست درخواست‌ها */
+    .req-list { max-height: 250px; overflow-y: auto; }
+    .req-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a1a2e;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .req-item:hover { background: #1a1a2e; }
+    .req-item:last-child { border-bottom: none; }
+    .method {
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 3px;
+      min-width: 38px;
+      text-align: center;
+    }
+    .method-post { background: #ff9f43; color: #000; }
+    .method-get { background: #54a0ff; color: #000; }
+    .req-url { flex: 1; font-size: 11px; color: #aaa; direction: ltr; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .req-status {
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+    .status-200 { background: #00ff88; color: #000; }
+    .status-400 { background: #ff4757; color: #fff; }
+    .status-other { background: #ffa502; color: #000; }
+    .req-time { font-size: 10px; color: #666; direction: ltr; }
+
+    /* جزئیات درخواست */
+    .req-detail {
+      display: none;
+      background: #0a0a15;
+      border-top: 1px solid #2a2a4a;
+      padding: 10px 12px;
+    }
+    .req-detail.active { display: block; }
+    .req-detail h4 {
+      color: #00ff88;
+      font-size: 11px;
+      margin: 8px 0 4px;
+    }
+    .req-detail h4:first-child { margin-top: 0; }
+
+    /* راهنما */
+    .guide {
+      margin: 12px 20px 16px;
+      padding: 14px;
+      background: #1a1a2e;
+      border: 1px dashed #3a3a5a;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 2;
+      color: #888;
+    }
+    .guide strong { color: #00ff88; }
+    .guide ol { padding-right: 20px; }
+    .guide li { margin-bottom: 2px; }
+
+    /* هایلایت */
+    .hl-key { color: #ff6b81; }
+    .hl-str { color: #00ff88; }
+    .hl-num { color: #ffa502; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🔍 ERP Recon</h1>
+    <div class="status">درخواست‌های ثبت شده: <span id="count">0</span></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-refresh" onclick="refresh()">بروزرسانی</button>
+    <button class="btn btn-clear" onclick="clearAll()">پاک کردن همه</button>
+  </div>
+
+  <!-- بخش ۱: confirmer -->
+  <div class="section">
+    <div class="section-title">
+      <span class="num">۱</span>
+      مقدار confirmer
+    </div>
+    <div class="section-body" id="sec1"></div>
+  </div>
+
+  <!-- بخش ۲: پاسخ موفق -->
+  <div class="section">
+    <div class="section-title">
+      <span class="num">۲</span>
+      بدنه پاسخ موفقیت‌آمیز (Status 200)
+    </div>
+    <div class="section-body" id="sec2"></div>
+  </div>
+
+  <!-- بخش ۳: درخواست لیست -->
+  <div class="section">
+    <div class="section-title">
+      <span class="num">۳</span>
+      درخواست بارگذاری لیست (cURL)
+    </div>
+    <div class="section-body" id="sec3"></div>
+  </div>
+
+  <!-- تمام درخواست‌ها -->
+  <div class="section">
+    <div class="section-title">
+      <span class="num">📋</span>
+      تمام درخواست‌های ثبت شده
+    </div>
+    <div class="section-body" style="padding:0;">
+      <div class="req-list" id="reqList"></div>
+    </div>
+  </div>
+
+  <!-- راهنما -->
+  <div class="guide">
+    <strong>راهنما:</strong>
+    <ol>
+      <li>این اکستنشن رو نصب کن و صفحه ERP رو <strong>Refresh</strong> کن</li>
+      <li>یک بار <strong>دستی</strong> تایید درخواست رو انجام بده (با کسی که تایید شده)</li>
+      <li>روی آیکون اکستنشن کلیک کن — نتایج رو ببین و <strong>کپی</strong> کن</li>
+      <li>اگه بخشی «شناسایی نشده» بود، لیست درخواست‌ها رو چک کن</li>
+    </ol>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
