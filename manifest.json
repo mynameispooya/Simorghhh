@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "ERP Recon - شناسایی خودکار",
+  "version": "1.0",
+  "description": "استخراج خودکار اطلاعات مورد نیاز اکستنشن تایید مرخصی",
+  "permissions": ["storage"],
+  "host_permissions": ["http://erp-amin.atavita.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ERP Recon"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://erp-amin.atavita.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>",
+    "48": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>",
+    "128": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>"
+  }
+}
