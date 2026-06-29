@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>جستجوگر هوشمند اکسل | Vibe Coding</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --primary: #4facfe;
+            --success: #43e97b;
+            --danger: #fa709a;
+            --text-light: #ffffff;
+            --text-dim: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Vazirmatn', sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            color: var(--text-light);
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+
+        .card-header .icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), #00f2fe);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .card-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(79, 172, 254, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success);
+            background: rgba(67, 233, 123, 0.1);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-list {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .file-tag {
+            background: rgba(255,255,255,0.15);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-tag .remove-file {
+            cursor: pointer;
+            color: var(--danger);
+            font-weight: bold;
+        }
+
+        .btn-analyze {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
+            background: linear-gradient(90deg, var(--success), #38f9d7);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
+        }
+
+        .btn-analyze:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 20px rgba(67, 233, 123, 0.6);
+        }
+
+        .btn-analyze:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .results-section {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .download-btn {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            background: rgba(79, 172, 254, 0.3);
+            border-color: var(--primary);
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: var(--danger);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 10000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>در حال پردازش و جستجو در فایل‌ها... لطفاً شکیبا باشید.</p>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="container">
+        <header>
+            <h1>🔍 سیستم یکپارچه جستجوی اسامی اکسل</h1>
+            <p>استخراج هوشمند اطلاعات پرسنلی از مجموعه فایل‌ها</p>
+        </header>
+
+        <!-- بخش 1: آپلود فایل‌های مرجع -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon">1</div>
+                <h2>آپلود فایل‌های اکسل مرجع (محل جستجو)</h2>
+            </div>
+            <div class="upload-area" id="dropZone1" onclick="document.getElementById('fileInput1').click()">
+                <p>فایل‌های اکسل اینجا را بکشید و رها کنید یا کلیک کنید</p>
+                <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 5px;">(پشتیبانی از فرمت‌های xlsx, xls)</p>
+            </div>
+            <input type="file" id="fileInput1" class="file-input" multiple accept=".xlsx, .xls">
+            <div class="file-list" id="fileList1"></div>
+        </div>
+
+        <!-- بخش 2: آپلود فایل اطلاعات پرسنلی -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon">2</div>
+                <h2>آپلود فایل اکسل پرسنلی (نام، نام خانوادگی، کد)</h2>
+            </div>
+            <div class="upload-area" id="dropZone2" onclick="document.getElementById('fileInput2').click()">
+                <p>فایل اکسل لیست پرسنل را اینجا بارگذاری کنید</p>
+            </div>
+            <input type="file" id="fileInput2" class="file-input" accept=".xlsx, .xls">
+            <div class="file-list" id="fileList2"></div>
+        </div>
+
+        <button class="btn-analyze" id="analyzeBtn" disabled>آنالیز و استخراج اطلاعات</button>
+
+        <!-- بخش نتایج -->
+        <div class="results-section" id="resultsSection">
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon">✓</div>
+                    <h2>فایل‌های استخراج شده آماده دانلود هستند</h2>
+                </div>
+                <div id="downloadLinks" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sourceFiles = [];
+        let targetFile = null;
+
+        // --- توابع کمکی ---
+        const normalizeText = (text) => {
+            if (!text) return "";
+            return String(text)
+                .trim()
+                .replace(/ي/g, 'ی') // تبدیل ي عربی به ی فارسی
+                .replace(/ك/g, 'ک') // تبدیل ك عربی به ک فارسی
+                .replace(/\s+/g, ' ') // حذف فاصله‌های اضافی
+                .toLowerCase();
+        };
+
+        const showToast = (message) => {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 4000);
+        };
+
+        const toggleAnalyzeButton = () => {
+            document.getElementById('analyzeBtn').disabled = !(sourceFiles.length > 0 && targetFile);
+        };
+
+        // --- مدیریت آپلود فایل‌ها ---
+        const setupDropZone = (dropZoneId, fileInputId, isMultiple) => {
+            const dropZone = document.getElementById(dropZoneId);
+            const fileInput = document.getElementById(fileInputId);
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files, isMultiple);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files, isMultiple);
+            });
+        };
+
+        const handleFiles = (files, isMultiple) => {
+            const excelFiles = Array.from(files).filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+            
+            if (isMultiple) {
+                sourceFiles = [...sourceFiles, ...excelFiles];
+                renderFileList('fileList1', sourceFiles, true);
+            } else {
+                if (excelFiles.length > 0) {
+                    targetFile = excelFiles[0];
+                    renderFileList('fileList2', [targetFile], false);
+                }
+            }
+            toggleAnalyzeButton();
+        };
+
+        const renderFileList = (elementId, files, isMultiple) => {
+            const list = document.getElementById(elementId);
+            list.innerHTML = '';
+            files.forEach((file, index) => {
+                const tag = document.createElement('div');
+                tag.className = 'file-tag';
+                tag.innerHTML = `<span>📄 ${file.name}</span> ${isMultiple ? `<span class="remove-file" data-index="${index}">✖</span>` : ''}`;
+                if (isMultiple) {
+                    tag.querySelector('.remove-file').onclick = (e) => {
+                        e.stopPropagation();
+                        sourceFiles.splice(index, 1);
+                        renderFileList(elementId, sourceFiles, true);
+                        toggleAnalyzeButton();
+                    };
+                }
+                list.appendChild(tag);
+            });
+        };
+
+        // --- موتور اصلی پردازش ---
+        document.getElementById('analyzeBtn').addEventListener('click', async () => {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+
+            try {
+                // 1. خواندن فایل پرسنلی (فایل 2)
+                const targetData = await readExcelFile(targetFile);
+                if (targetData.length === 0) {
+                    showToast("فایل پرسنلی خالی است!");
+                    return;
+                }
+
+                // پیدا کردن ستون‌های نام، نام خانوادگی و کد پرسنلی به صورت هوشمند
+                const keys = Object.keys(targetData[0]);
+                let fNameKey = keys.find(k => k.includes('نام') && !k.includes('خانوادگی') && !k.includes('پدر'));
+                let lNameKey = keys.find(k => k.includes('خانوادگی'));
+                let codeKey = keys.find(k => k.includes('کد') || k.includes('پرسنلی'));
+
+                if (!fNameKey || !lNameKey) {
+                    showToast("ستون‌های 'نام' و 'نام خانوادگی' در فایل دوم یافت نشدند!");
+                    return;
+                }
+
+                // استخراج و استانداردسازی اسامی
+                const targets = targetData.map(row => {
+                    const fullName = `${row[fNameKey] || ""} ${row[lNameKey] || ""}`.trim();
+                    return {
+                        originalName: fullName,
+                        normalizedName: normalizeText(fullName),
+                        code: codeKey ? row[codeKey] : ""
+                    };
+                }).filter(t => t.normalizedName !== "");
+
+                // 2. آماده‌سازی ساختار نتایج
+                const results = {};
+                const unknownList = [];
+                // پیگیری اینکه آیا اسمی پیدا شده است یا خیر
+                const foundFlags = new Array(targets.length).fill(false);
+
+                // 3. جستجو در فایل‌های مرجع (فایل‌های بخش 1)
+                for (const file of sourceFiles) {
+                    const sourceData = await readExcelFile(file);
+                    const fileNameWithoutExt = file.name.replace(/\.(xlsx|xls)$/i, '');
+                    
+                    results[fileNameWithoutExt] = [];
+
+                    sourceData.forEach(row => {
+                        // تبدیل تمام مقادیر ردیف به یک متن برای جستجوی راحت‌تر
+                        const rowText = Object.values(row).map(v => String(v)).join(' ');
+                        const normalizedRowText = normalizeText(rowText);
+
+                        targets.forEach((target, idx) => {
+                            if (normalizedRowText.includes(target.normalizedName)) {
+                                // اسم در این فایل پیدا شد
+                                results[fileNameWithoutExt].push({
+                                    "نام و نام خانوادگی": target.originalName,
+                                    "محل فعالیت": fileNameWithoutExt
+                                });
+                                foundFlags[idx] = true;
+                            }
+                        });
+                    });
+
+                    // اگر هیچ اسمی در این فایل پیدا نشد، کلید آن را حذف کن
+                    if (results[fileNameWithoutExt].length === 0) {
+                        delete results[fileNameWithoutExt];
+                    }
+                }
+
+                // 4. استخراج اسامی پیدا نشده (Unknown)
+                targets.forEach((target, idx) => {
+                    if (!foundFlags[idx]) {
+                        unknownList.push({
+                            "نام و نام خانوادگی": target.originalName,
+                            "محل فعالیت": "unknown",
+                            "کدپرسنلی": target.code
+                        });
+                    }
+                });
+
+                if (unknownList.length > 0) {
+                    results["unknown"] = unknownList;
+                }
+
+                // 5. تولید فایل‌های اکسل برای دانلود
+                generateDownloadLinks(results);
+
+            } catch (error) {
+                console.error(error);
+                showToast("خطایی در پردازش رخ داده است. لطفا فایل‌ها را بررسی کنید.");
+            } finally {
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+        });
+
+        // تابع خواندن اکسل با SheetJS
+        const readExcelFile = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+                        resolve(jsonData);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        };
+
+        // تابع ساخت دکمه‌های دانلود
+        const generateDownloadLinks = (resultsData) => {
+            const container = document.getElementById('downloadLinks');
+            container.innerHTML = '';
+            
+            for (const [fileName, data] of Object.entries(resultsData)) {
+                // ساخت worksheet جدید
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+                
+                // تولید فایل باینری
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+
+                // ساخت دکمه دانلود
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${fileName}.xlsx`;
+                link.className = 'download-btn';
+                link.innerHTML = `
+                    <span>💾 دانلود فایل: ${fileName}.xlsx</span>
+                    <span style="font-size: 0.9rem; color: var(--text-dim);">${data.length} رکورد</span>
+                `;
+                container.appendChild(link);
+            }
+
+            document.getElementById('resultsSection').style.display = 'flex';
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        };
+
+        // راه‌اندازی اولیه
+        setupDropZone('dropZone1', 'fileInput1', true);
+        setupDropZone('dropZone2', 'fileInput2', false);
+    </script>
+</body>
+</html>
